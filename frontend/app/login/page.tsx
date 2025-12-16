@@ -1,5 +1,10 @@
+"use client"
+
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase/client"
 import {
   Card,
   CardContent,
@@ -16,7 +21,33 @@ import {
 import { Input } from "@/components/ui/input"
 
 export default function Page({}: React.ComponentProps<"div">) {
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault()
+
+  
+      console.log("signing up", { name, email })
+  
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+  
+
+      console.log("signup data:", data)
+      console.log("signup error:", error)
+
+      if (error == null) {
+        router.push("/chat")
+      }
+    }
+
   return (
+
      <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
         
@@ -29,7 +60,7 @@ export default function Page({}: React.ComponentProps<"div">) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form>
+          <form onSubmit={handleSubmit}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -37,6 +68,8 @@ export default function Page({}: React.ComponentProps<"div">) {
                   id="email"
                   type="email"
                   placeholder="m@example.com"
+                  value={email}
+                  onChange={(e) => {setEmail(e.target.value)}}
                   required
                 />
               </Field>
@@ -50,7 +83,12 @@ export default function Page({}: React.ComponentProps<"div">) {
                     Forgot your password?
                   </a>
                 </div>
-                <Input id="password" type="password" required />
+                <Input 
+                  id="password" 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => {setPassword(e.target.value)}}
+                  required />
               </Field>
               <Field>
                 <Button type="submit">Login</Button>
