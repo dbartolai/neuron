@@ -4,16 +4,23 @@
 # Write chats back to the db, gather context, delete/revise individual messages
 
 import asyncpg
-from typing import List
-from app.schemas.log import MessageLog
+from typing import Optional, List
+from uuid import UUID
 
 class ThreadService:
 
     @staticmethod
-    async def get_thread_id(db: asyncpg.Connection, thread_name: str) -> str:
+    async def get_thread_id(db: asyncpg.Connection, thread_name: str, user_id: UUID) -> Optional[UUID]:
         query = """
-            SELECT id FROM threads WHERE title = $1
+            SELECT id 
+            FROM threads 
+            WHERE title = $1 AND user_id = $2
         """
 
-        return await db.fetch(query, thread_name)
+        row = await db.fetchrow(query, thread_name, user_id)
+
+        if row is None:
+            return None
+        
+        return row["id"]
 

@@ -26,7 +26,7 @@ class ChatService:
 
         context_input = ""
         for chat in log:
-            sender = "User: " if chat.role else "Chatbot: "
+            sender = chat.role
             context_input += sender
             context_input += chat.message
             context_input += "\n"

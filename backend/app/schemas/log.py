@@ -1,9 +1,11 @@
 from pydantic import BaseModel
 from datetime import datetime
+from app.schemas.chat import ChatRole
+from uuid import UUID
 
 class MessageLog(BaseModel):
-    id: int
-    thread_id: str
-    role: bool
+    id: UUID
+    thread_id: UUID
+    role: ChatRole
     message: str
     created_at: datetime

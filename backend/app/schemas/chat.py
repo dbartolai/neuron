@@ -1,6 +1,12 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from enum import Enum
 
+class ChatRole(str, Enum):
+    student="student"
+    assistant="assistant"
+    system="system"
+    instructor="instructor"
 
 class ChatRequest(BaseModel):
     thread_name: str
@@ -8,10 +14,10 @@ class ChatRequest(BaseModel):
     message: str
 
 class MessageEntry(BaseModel):
-    role: bool
+    role: ChatRole
     content: str
     timestamp: str
 
 class ChatResponse(BaseModel):
     reply: str
-    role: bool
+    role: ChatRole
