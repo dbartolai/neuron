@@ -2,12 +2,7 @@
 
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import {getAccessToken} from "@/lib/supabase/client"
 
 export interface ChatMessage {
     id? : string;
@@ -54,15 +49,7 @@ export function useChat(thread_name : string) : UseChatResponse {
             try {
 
                 // find supabase access token
-                const { data : {session}} = await supabase.auth.getSession();
-
-                if (!session?.access_token){
-                    setError("Not Authenticated");
-                    setIsLoading(false);
-                    return;
-                }
-
-                const token = session.access_token;
+                const token = getAccessToken();
 
                 // send request to backend
                 const res = await fetch (
