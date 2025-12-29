@@ -6,6 +6,7 @@
 import asyncpg
 from typing import Optional, List
 from uuid import UUID
+from app.schemas.thread import GetThreadResponse
 
 class ThreadService:
 
@@ -23,4 +24,83 @@ class ThreadService:
             return None
         
         return row["id"]
+    
+    @staticmethod
+    async def get_thread_ids_by_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID) -> List[UUID]:
+
+        query = """
+            SELECT id 
+            FROM threads
+            WHERE user_id = $2
+            AND course_id = $1
+        """
+
+        rows = await db.fetch(query, course_id, user_id)
+
+        return [row["id"] for row in rows]
+    
+    @staticmethod
+    async def get_threads_by_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID) -> List[GetThreadResponse]:
+
+        query = """
+            SELECT id, updated_at, title
+            FROM threads
+            WHERE user_id = $2
+            AND course_id = $1
+            ORDER BY updated_at DESC
+        """
+
+        rows = await db.fetch(query, course_id, user_id)
+
+        return [dict(row) for row in rows]
+    
+    @staticmethod
+    async def get_thread_preview_by_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID) -> List[GetThreadResponse]:
+
+        query = """
+            SELECT id, updated_at, title
+            FROM threads
+            WHERE user_id = $2
+            AND course_id = $1
+            ORDER BY updated_at DESC
+            LIMIT 10
+        """
+
+        rows = await db.fetch(query, course_id, user_id)
+
+        return [dict(row) for row in rows]
+    
+    @staticmethod
+    async def get_thread_count_by_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID) -> int:
+
+        query = """
+            SELECT COUNT(*) 
+            FROM threads
+            WHERE user_id = $2
+                AND course_id = $1
+        """
+    
+        count: int = await db.fetch(query, course_id, user_id)
+
+        return count
+    
+    
+    @staticmethod
+    async def create_thread_in_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID, thread_name: str) -> UUID:
+        
+        query = """
+            INSERT INTO threads (title, user_id, course_id)
+            VALUES ($3, $2, $1)
+            RETURNING id
+        """
+
+        row = await db.fetchrow(query, course_id, user_id, thread_name)
+
+        return row["id"]
+        
+
+
+
+
+
 

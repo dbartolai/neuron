@@ -7,3 +7,4 @@ class UserCourse(BaseModel):
     code: str
     instructor: str
     
+    
