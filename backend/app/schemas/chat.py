@@ -19,5 +19,5 @@ class MessageEntry(BaseModel):
     timestamp: str
 
 class ChatResponse(BaseModel):
-    reply: str
+    content: str
     role: ChatRole

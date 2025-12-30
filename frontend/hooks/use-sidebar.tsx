@@ -104,7 +104,7 @@ export function useSidebar() : Sidebar {
             setUser({
                 name: "Drake Bartolai",
                 email: "drakeab2@illinois.edu",
-                avatar: "/avatars/shadcn.jpg"
+                avatar: ""
             })
 
         } catch (e: any) {

@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {getAccessToken} from "@/lib/supabase/client"
 
-enum ChatRole  {
+export const enum ChatRole  {
     STUDENT = "student",
     INSTRUCTOR = "instructor",
     ASSISTANT = "assistant",
@@ -117,6 +117,9 @@ export function useChat(thread_id : string) : UseChatResponse {
                         content: m.content,
                     }))
                 );
+
+                console.log("CHAT HOOK:");
+                console.log(messages);
             } catch (e: any) {
                 if (e?.name === 'AbortError') return;
                 setError( e || "unknown error");

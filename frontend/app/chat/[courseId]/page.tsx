@@ -92,11 +92,13 @@ export default function CoursePage() {
             </Breadcrumb>
           </div>
         </header>
-        <div className="flex flex-1 flex-col justify-between gap-4 p-4 pt-0">
-          <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 pt-0 overflow-x-hidden">
+          <div className="flex w-full max-w-3xl mx-auto flex-1 min-h-0 flex-col gap-4 overflow-y-auto overscroll-none">
             <MessageLog messages={[]}/>
           </div>
-          <ChatInput value = {input} onChange={setInput} onSend={sendMessage} />
+          <div className="w-full max-w-3xl mx-auto bg-background sticky bottom-0 z-10">
+            <ChatInput value = {input} onChange={setInput} onSend={sendMessage} />
+          </div>
         </div>
         </>
   )

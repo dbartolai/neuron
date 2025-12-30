@@ -9,9 +9,9 @@ import {
 export default function Page({ children }: { children: React.ReactNode }) {
 
   return (
-     <SidebarProvider>
+     <SidebarProvider className="w-full max-h-svh overflow-hidden">
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="max-h-svh overflow-hidden">
         {children}
       </SidebarInset>
     </SidebarProvider>

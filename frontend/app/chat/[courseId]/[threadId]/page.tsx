@@ -35,9 +35,9 @@ export default function ThreadPage() {
   const [input, setInput] = useState("");
 
   return (
-        <>
+      <div className="flex h-svh flex-col overflow-hidden">
         
-        <header className="flex h-16 shrink-0 items-center gap-2">
+        <header className="flex h-16 shrink-0 ">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator
@@ -59,13 +59,24 @@ export default function ThreadPage() {
             </Breadcrumb>
           </div>
         </header>
-        <div className="flex flex-1 flex-col justify-between gap-4 p-4 pt-0">
-          <div className="flex-1 overflow-y-auto">
-            <MessageLog messages={messages}/>
+
+
+        <div className="flex flex-1 min-h-0 flex-col">
+
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-none chat-scroll">
+            <div className="mx-auto w-full max-w-3xl px-4">
+              <MessageLog messages={messages} />
+            </div>
           </div>
-          <ChatInput value = {input} onChange={setInput} onSend={sendMessage} />
+
+          <div className="shrink-0 bg-background w-auto">
+            <div className="mx-auto w-full max-w-3xl px-4 py-4">
+              <ChatInput value={input} onChange={setInput} onSend={sendMessage} />
+            </div>
+          </div>
+
         </div>
-      </>
+      </div>
     
   )
 }

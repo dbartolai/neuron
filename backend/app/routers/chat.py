@@ -36,7 +36,7 @@ async def send_chat(body: ChatRequest, db = Depends(get_db), user: User = Depend
     # send response to frontend 
     return ChatResponse(
         role = ChatRole.assistant,
-        reply = output
+        content = output
     )
 
 
@@ -50,7 +50,7 @@ async def chat_history(thread_id: UUID, db = Depends(get_db), user: User = Depen
     return [
 
         ChatResponse(
-            reply=chat.message,
+            content=chat.message,
             role = chat.role
         )
         for chat in logs

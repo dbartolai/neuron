@@ -112,11 +112,33 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120,120,120,0.20) transparent;
+}
+
+.chat-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(120,120,120,0.25);
+  border-radius: 999px;
+}
+
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overscroll-none overflow-x-hidden;
+  }
+  .hljs {
+    @apply bg-transparent!; 
   }
 }

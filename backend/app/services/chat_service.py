@@ -13,9 +13,15 @@ class ChatService:
     @staticmethod
     async def send_message(message: str) -> str:
 
+        system = """    
+            All responses must be valid GitHub-Flavored Markdown.
+            Do not emit HTML.
+            If writing code, use fenced code blocks with language tags. \n
+        """
+
         response = client.responses.create(
             model = "gpt-4.1",
-            input = message,
+            input = system + message,
         )
 
         return response.output_text
@@ -24,8 +30,9 @@ class ChatService:
     async def create_title(message: str) -> str:
 
         get_title_input = """
-            The following message is from a user asking about their programming assignment.
-            Create and return an appropriate title for the conversation and nothing else: \n\n
+            The following message is from a user.
+            Create and return an appropriate title for the conversation and nothing else.
+            Ensure the title is 20 characters or less. \n\n
         """
         response = client.responses.create(
             model = "gpt-4.1",
