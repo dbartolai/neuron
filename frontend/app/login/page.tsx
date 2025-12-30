@@ -28,9 +28,6 @@ export default function Page({}: React.ComponentProps<"div">) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault()
-
-  
-      console.log("signing up", { name, email })
   
       const { data, error } = await supabase.auth.signInWithPassword({
         email,

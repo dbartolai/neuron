@@ -19,7 +19,20 @@ class ChatService:
         )
 
         return response.output_text
+    
+    @staticmethod
+    async def create_title(message: str) -> str:
+
+        get_title_input = """
+            The following message is from a user asking about their programming assignment.
+            Create and return an appropriate title for the conversation and nothing else: \n\n
+        """
+        response = client.responses.create(
+            model = "gpt-5-nano",
+            input = (get_title_input + message),
+        )
         
+        return response.output.text
 
     @staticmethod
     async def summarize_context(log: List[MessageLog]) -> str:

@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from enum import Enum
+from uuid import UUID
 
 class ChatRole(str, Enum):
     student="student"
@@ -9,7 +10,7 @@ class ChatRole(str, Enum):
     instructor="instructor"
 
 class ChatRequest(BaseModel):
-    thread_name: str
+    thread_id: UUID
     assignment_id: str
     message: str
 

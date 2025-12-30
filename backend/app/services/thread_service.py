@@ -80,7 +80,7 @@ class ThreadService:
                 AND course_id = $1
         """
     
-        count: int = await db.fetch(query, course_id, user_id)
+        count: int = await db.fetchval(query, course_id, user_id)
 
         return count
     
@@ -97,8 +97,19 @@ class ThreadService:
         row = await db.fetchrow(query, course_id, user_id, thread_name)
 
         return row["id"]
-        
+    
+    @staticmethod
+    async def get_thread_name_by_id(db: asyncpg.Connection, thread_id: UUID) -> str:
 
+        query = """
+            SELECT title
+            FROM threads
+            WHERE id = $1
+        """
+        
+        name: str = await db.fetch(query, thread_id)
+
+        return name
 
 
 

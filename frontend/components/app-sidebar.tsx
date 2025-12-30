@@ -16,7 +16,6 @@ import {
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -28,57 +27,38 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
-const data = {
-  user: {
-    name: "Drake Bartolai",
-    email: "drakeab2@illinois.edu",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "ECE 391",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "Debugging Threads",
-          url: "#",
-        },
-        {
-          title: "gdb results off",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "CS 225",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "A-star not working ",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "New Course",
-      url: "#",
-      icon: PlusCircle,
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: Send,
-    },
-  ]
-}
+import { useSidebar } from "@/hooks/use-sidebar"
+import { useParams } from "next/navigation"
+
+
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+
+  const { courseId } = useParams<{ courseId?: string; threadId?: string}>()
+
+  const { courses, user, isLoading, error } = useSidebar();
+
+  const navMain = React.useMemo(() => {
+    return courses.map((c) => ({
+      title: c.title,
+      url: c.url,
+      icon: c.icon,
+      isActive: courseId === c.id,
+      items: c.items,
+    }));
+  }, [courses, courseId]);
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -99,12 +79,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+       {isLoading && (
+          <div className="px-3 py-2 text-sm text-muted-foreground">
+            Loading courses…
+          </div>
+        )}
+
+        {error && (
+          <div className="px-3 py-2 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        {!isLoading && !error && <NavMain items={navMain} />}
         {/* <NavProjects projects={data.projects} /> */}
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSecondary items={[
+          {title: "New Course", url: "#", icon: PlusCircle,},
+        ]} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        {user && <NavUser user={user}/>}
       </SidebarFooter>
     </Sidebar>
   )

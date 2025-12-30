@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app.dependencies.db import get_db
 from app.dependencies.auth import me
-from app.schemas.chat import ChatRequest, ChatResponse
+from app.schemas.chat import ChatRequest, ChatResponse, ChatRole
 from app.schemas.log import MessageLog
 from app.schemas.user import User
 from app.services.chat_service import ChatService
@@ -11,43 +11,40 @@ from app.services.thread_service import ThreadService
 from uuid import UUID
 
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(tags=["chat"])
 
 @router.post(path="/",response_model=ChatResponse)
 async def send_chat(body: ChatRequest, db = Depends(get_db), user: User = Depends(me)) -> ChatResponse:
 
-    # get thread id via the name
-    thread_id: UUID = ThreadService.get_thread_id(db, body.thread_name, user.id)
+    # get thread id via the body
+    thread_id: UUID = body.thread_id
 
     # get context from recent messages in the same thread
-    logs: List[MessageLog] = LogService.get_messages_from_thread(db, thread_id)
-    context: str = ChatService.summarize_context(logs)
+    logs: List[MessageLog] = await LogService.get_messages_from_thread(db, thread_id)
+    context: str = await ChatService.summarize_context(logs)
 
     # add user chat to logs
-    LogService.insert_message(db, thread_id, True)    
+    await LogService.insert_message(db, thread_id, True)    
 
     # call open ai api to complete chat
     input: str = " Previous Chats: \n" + context + "\n Message: \n" + body.message
-    output: str = ChatService.send_message(input)
+    output: str = await ChatService.send_message(input)
 
     # add chatbot response to logs
-    LogService.insert_message(db, body.thread_id, False, output)
+    await LogService.insert_message(db, body.thread_id, False, output)
 
     # send response to frontend 
     return ChatResponse(
-        role = False,
+        role = ChatRole.assistant,
         reply = output
     )
 
 
-@router.get(path="/")
-async def chat_history(body: ChatRequest, db = Depends(get_db), user: User = Depends(me)) -> List[ChatResponse]:
-
-    # get thread id via the name
-    thread_id: UUID = ThreadService.get_thread_id(db, body.thread_name, user.id)
+@router.get(path="/{thread_id}")
+async def chat_history(thread_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> List[ChatResponse]:
 
     # fetch message logs from db
-    logs: List[MessageLog] = LogService.get_messages_from_thread(db, thread_id)
+    logs: List[MessageLog] = await LogService.get_messages_from_thread(db, thread_id)
     
     # send back a list of chat responses
     return [
@@ -59,3 +56,8 @@ async def chat_history(body: ChatRequest, db = Depends(get_db), user: User = Dep
         for chat in logs
     ]
     
+
+@router.get(path="/{thread_id}/name")
+async def get_thread_name_by_id(thread_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> str:
+
+    return await ThreadService.get_thread_name_by_id(db, thread_id)

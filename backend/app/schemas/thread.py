@@ -10,7 +10,7 @@ class ChatThread(BaseModel):
     title: str
 
 class ThreadRequest(BaseModel):
-    title: str
+    first_message: str
 
 class CreateThreadResponse(BaseModel):
     id: UUID

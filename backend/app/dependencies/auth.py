@@ -1,22 +1,19 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import os
 import jwt
 from jwt import PyJWKClient
-import os
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.schemas.user import User
 
 security = HTTPBearer()
 
 SUPABASE_PROJECT_ID = os.environ["SUPABASE_PROJECT_ID"]
-
 SUPABASE_ISSUER = f"https://{SUPABASE_PROJECT_ID}.supabase.co/auth/v1"
-SUPABASE_JWKS_URL = f"{SUPABASE_ISSUER}/certs"
+SUPABASE_JWKS_URL = f"{SUPABASE_ISSUER}/.well-known/jwks.json"
 
 jwks_client = PyJWKClient(SUPABASE_JWKS_URL)
 
-
-def me(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-):
+def me(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     token = credentials.credentials
 
     try:
@@ -25,22 +22,18 @@ def me(
         payload = jwt.decode(
             token,
             signing_key.key,
-            algorithms=["RS256"],
+            algorithms=["ES256"],
             audience="authenticated",
             issuer=SUPABASE_ISSUER,
         )
 
-    except jwt.ExpiredSignatureError:
+    except (jwt.PyJWKClientError, jwt.InvalidTokenError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired",
+            detail=f"Could not verify token: {str(e)}",
         )
 
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
+    print(payload["sub"])
 
     return {
         "id": payload["sub"],

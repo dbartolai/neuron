@@ -9,6 +9,9 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
+import CourseEnroll from "./course/course-enroll"
+
+
 export function NavSecondary({
   items,
   ...props
@@ -26,10 +29,14 @@ export function NavSecondary({
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild size="sm">
-                <a href={item.url}>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </a>
+                {item.title == "New Course" ? (
+                <CourseEnroll item={item}/>
+                ) : (
+                  <a href={item.url ?? "#"}>
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </a>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

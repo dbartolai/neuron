@@ -4,31 +4,133 @@
 import { useState, useEffect, useCallback } from 'react'
 import {getAccessToken} from "@/lib/supabase/client"
 
+enum ChatRole  {
+    STUDENT = "student",
+    INSTRUCTOR = "instructor",
+    ASSISTANT = "assistant",
+    SYSTEM = "system"
+};
+
 export interface ChatMessage {
     id? : string;
-    role : boolean; // True -> user
+    role : ChatRole;
     content: string;
 }
 
 export interface UseChatResponse {
+    threadName : string;
     messages : ChatMessage[];
     sendMessage : (content: string) => Promise<void>;
-    isLoading: boolean;
+    nameLoading: boolean;
+    chatLoading: boolean;
     error: string | null;
     resetChat: () => void;
 }
 
-export function useChat(thread_name : string) : UseChatResponse {
+export function useChat(thread_id : string) : UseChatResponse {
 
+    const [threadName, setThreadName] = useState<string>("");
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [nameLoading, setNameLoading] = useState(false);
+    const [chatLoading, setChatLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // reset if thread changes
-    useEffect( () => {
-        setMessages([]);
+    useEffect(() => {
         setError(null);
-    }, [thread_name]);
+        setThreadName("");
+
+        if (!thread_id) return;
+        const controller = new AbortController();
+
+        (async () => {
+
+            setNameLoading(true);
+
+            try {
+                const token = await getAccessToken();
+                const name_res = await fetch(`http://localhost:8000/chat/${thread_id}/name`,{
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    signal: controller.signal,
+                });
+
+                if (!name_res.ok) {
+                    throw new Error ("name fetch failed");
+                }
+
+                const data: string = await name_res.json();
+
+                setThreadName(data)
+            } catch (e: any) {
+                if (e?.name === 'AbortError') return;
+                setError(e.message || "Unknown Error");
+            } finally {
+                 if (!controller.signal.aborted) setNameLoading(false);
+            }
+        })();
+
+        return () => controller.abort();
+
+    }, [thread_id]);
+
+    // get message history in thread
+    useEffect( () => {
+
+        setMessages([]);
+
+
+        if (!thread_id) return;
+
+        const controller = new AbortController();
+
+        (async () => {
+
+            setError(null);
+            setChatLoading(true);
+
+            try {
+
+                // get access token
+                const token = await getAccessToken();
+
+                const res = await fetch(`http://localhost:8000/chat/${thread_id}`, {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    signal: controller.signal,
+                });
+
+                if (!res.ok){
+                    throw new Error("message fetch failed");
+                }
+
+                const data = (await res.json()) as ChatMessage[];
+
+                setMessages(
+                    data.map((m) => ({
+                        id: m.id,
+                        role: m.role,
+                        content: m.content,
+                    }))
+                );
+            } catch (e: any) {
+                if (e?.name === 'AbortError') return;
+                setError( e || "unknown error");
+            } finally {
+                if (!controller.signal.aborted) setChatLoading(false);
+            }
+
+            
+
+        })();
+
+        return () => controller.abort();
+
+    }, [thread_id]);
 
     // message send logic
     const sendMessage = useCallback(
@@ -39,17 +141,17 @@ export function useChat(thread_name : string) : UseChatResponse {
             setMessages((prev) => [
                 ...prev,
                 {
-                    role: true,
+                    role: ChatRole.STUDENT,
                     content
                 }
             ]);
 
-            setIsLoading(true);
+            setChatLoading(true);
 
             try {
 
                 // find supabase access token
-                const token = getAccessToken();
+                const token = await getAccessToken();
 
                 // send request to backend
                 const res = await fetch (
@@ -62,7 +164,7 @@ export function useChat(thread_name : string) : UseChatResponse {
                         },
                         body: JSON.stringify({
                             message: content,
-                            thread_name: thread_name
+                            thread_id: thread_id
                         }),
                     }
                 );
@@ -76,16 +178,16 @@ export function useChat(thread_name : string) : UseChatResponse {
                 setMessages((prev) => [
                     ...prev,
                     {
-                        role: false,
+                        role: ChatRole.ASSISTANT,
                         content: data.reply
                     }
                 ]);
             } catch (err: any) {
                 setError(err.message || "unknown error");
             } finally {
-                setIsLoading(false);
+                setChatLoading(false);
             }
-        }, [thread_name]
+        }, [thread_id]
     );
 
     const resetChat = () => {
@@ -94,9 +196,11 @@ export function useChat(thread_name : string) : UseChatResponse {
     }   
 
     return {
+        threadName,
         messages,
         sendMessage,
-        isLoading,
+        nameLoading,
+        chatLoading,
         error,
         resetChat
     };

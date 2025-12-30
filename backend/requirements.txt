@@ -3,3 +3,6 @@ uvicorn[standard]>=0.29
 pydantic>=2.6
 openai>=1.0
 asyncpg>=0.29
+cryptography>=46.0.3
+cffi>=2.0.0
+pycparser>=2.23

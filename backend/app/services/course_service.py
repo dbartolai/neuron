@@ -26,6 +26,17 @@ class CourseService:
         rows = await db.fetch(query, user_id)
 
         return [UserCourse(**dict(row)) for row in rows]
+    
+    @staticmethod
+    async def get_course_name_by_id(db: asyncpg.Connection, course_id: UUID) -> str:
+
+        query = """
+            SELECT name
+            FROM courses
+            WHERE id = $1
+        """
+
+        return await db.fetch(query, course_id)
 
 
     @staticmethod
