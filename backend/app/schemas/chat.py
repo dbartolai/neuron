@@ -11,7 +11,6 @@ class ChatRole(str, Enum):
 
 class ChatRequest(BaseModel):
     thread_id: UUID
-    assignment_id: str
     message: str
 
 class MessageEntry(BaseModel):

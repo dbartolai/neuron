@@ -16,15 +16,16 @@ from app.schemas.chat import ChatRole
 router = APIRouter(tags=["courses"])
 
 
-@router.post(path="/{course_id}/threads", response_model=CreateThreadResponse, status_code=201)
+@router.post(path="/{course_id}/thread", response_model=CreateThreadResponse, status_code=201)
 async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depends(get_db), user: User = Depends(me)) -> Optional[UUID]:
 
+    print("CREATING THREAD:")
     
     # handle title creation
     new_title: str = await ChatService.create_title(body.first_message)
 
     # create new thread with title
-    thread_id = await ThreadService.create_thread_in_course(db, course_id=course_id, user_id=user.id, thread_name=new_title)
+    thread_id = await ThreadService.create_thread_in_course(db, course_id=course_id, user_id=user["id"], thread_name=new_title)
 
     # add first message to logs
     await LogService.insert_message(db, thread_id, ChatRole.student, body.first_message)

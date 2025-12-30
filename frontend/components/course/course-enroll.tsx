@@ -1,3 +1,4 @@
+import * as React from "react"
 import {
   Dialog,
   DialogClose,
@@ -14,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { type LucideIcon } from "lucide-react"
 
+import { getAccessToken } from "@/lib/supabase/client"
 
 
 type Item = {
@@ -28,6 +30,29 @@ type CourseEnrollProps = {
 
 
 export default function CourseEnroll({ item }: CourseEnrollProps) {
+
+    const [codeInput, setCodeInput] = React.useState<string>("ABC101-12345")
+
+
+    const handleEnroll = async () => {
+        console.log(`Enrolling: ${codeInput}`)
+
+        const token = await getAccessToken();
+
+        const code = codeInput;
+
+        const res = await fetch("http://localhost:8000/user/enroll", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ code })
+        });
+
+        if (!res.ok) throw new Error(`couldn't enroll ${res.status}`);
+
+    }
 
     return (
         <Dialog>
@@ -45,16 +70,16 @@ export default function CourseEnroll({ item }: CourseEnrollProps) {
                 <div className="grid gap-4">
                 <div className="grid gap-3">
                     <Label htmlFor="course-code">Code</Label>
-                    <Input id="course-code" name="code" defaultValue="ABC101-12345" />
+                    <Input id="course-code" name="code" value={codeInput} onChange={(e) => setCodeInput(e.target.value) } />
                 </div>
                 </div>
                 <DialogFooter>
                 <DialogClose asChild>
                     <Button variant="outline">Cancel</Button>
                 </DialogClose>
-                <Button type="submit">Enroll</Button>
+                <Button type="submit" onClick={handleEnroll}>Enroll</Button>
                 </DialogFooter>
             </DialogContent>
-            </Dialog>
+        </Dialog>
     )
 }

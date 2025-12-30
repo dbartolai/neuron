@@ -6,6 +6,7 @@ import asyncpg
 from typing import List
 from app.schemas.course import UserCourse
 from uuid import UUID
+from fastapi import HTTPException
 
 class CourseService:
 
@@ -36,7 +37,12 @@ class CourseService:
             WHERE id = $1
         """
 
-        return await db.fetch(query, course_id)
+        course_name: str = await db.fetchval(query, course_id)
+
+        if course_name is None:
+            raise HTTPException(status_code=404, detail="course not found")
+        
+        return course_name
 
 
     @staticmethod
@@ -54,4 +60,20 @@ class CourseService:
 
         rows = await db.fetch(query, user_id)
         return [UserCourse(**dict(row)) for row in rows]
+    
+    @staticmethod
+    async def get_id_from_code(db: asyncpg.Connection, course_code: str) -> UUID:
+
+        query: str = """
+            SELECT id
+            FROM courses 
+            WHERE code = $1
+        """
+
+        course_id: UUID = await db.fetchval(query, course_code)
+        if course_id is None:
+            raise HTTPException(status_code=404, detail="Invalid course code")
+
+        return course_id
+
 

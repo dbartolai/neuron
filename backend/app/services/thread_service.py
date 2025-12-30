@@ -7,6 +7,7 @@ import asyncpg
 from typing import Optional, List
 from uuid import UUID
 from app.schemas.thread import GetThreadResponse
+from fastapi import HTTPException
 
 class ThreadService:
 
@@ -107,8 +108,10 @@ class ThreadService:
             WHERE id = $1
         """
         
-        name: str = await db.fetch(query, thread_id)
+        name: str = await db.fetchval(query, thread_id)
 
+        if name is None:
+            raise HTTPException(status_code=404, detail="thread not found")
         return name
 
 

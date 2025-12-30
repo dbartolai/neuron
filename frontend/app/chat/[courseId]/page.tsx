@@ -26,6 +26,9 @@ import { getAccessToken } from "@/lib/supabase/client"
 
 export default function CoursePage() {
 
+  const params = useParams();
+  console.log(params);
+
   const { courseId } = useParams<{
     courseId: string;
   }>();
@@ -40,10 +43,15 @@ export default function CoursePage() {
     // create thread as a POST at /courses/{courseid}/thread
     const token = await getAccessToken();
 
+    console.log("Sending Message:")
+    console.log(courseId)
+    console.log(input)
+
     const res = await fetch(`http://localhost:8000/courses/${courseId}/thread`, {
         method: "POST",
         headers: {
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
         },
         body: JSON.stringify({
             first_message: input,
@@ -61,9 +69,7 @@ export default function CoursePage() {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
+        <>
         <header className="flex h-16 shrink-0 items-center gap-2">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
@@ -92,9 +98,6 @@ export default function CoursePage() {
           </div>
           <ChatInput value = {input} onChange={setInput} onSend={sendMessage} />
         </div>
-      </SidebarInset>
-      
-    </SidebarProvider>
-    
+        </>
   )
 }

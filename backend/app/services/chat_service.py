@@ -14,7 +14,7 @@ class ChatService:
     async def send_message(message: str) -> str:
 
         response = client.responses.create(
-            model = "gpt-5-nano",
+            model = "gpt-4.1",
             input = message,
         )
 
@@ -28,11 +28,11 @@ class ChatService:
             Create and return an appropriate title for the conversation and nothing else: \n\n
         """
         response = client.responses.create(
-            model = "gpt-5-nano",
+            model = "gpt-4.1",
             input = (get_title_input + message),
         )
         
-        return response.output.text
+        return response.output_text
 
     @staticmethod
     async def summarize_context(log: List[MessageLog]) -> str:
@@ -45,7 +45,7 @@ class ChatService:
             context_input += "\n"
 
         response = client.responses.create(
-            model = "gpt-5-nano",
+            model = "gpt-4.1",
             instructions="Summarize the provided conversation between this user and chatbot",
             input = context_input,
         )

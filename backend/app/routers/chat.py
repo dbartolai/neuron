@@ -24,14 +24,14 @@ async def send_chat(body: ChatRequest, db = Depends(get_db), user: User = Depend
     context: str = await ChatService.summarize_context(logs)
 
     # add user chat to logs
-    await LogService.insert_message(db, thread_id, True)    
+    await LogService.insert_message(db, thread_id, ChatRole.student, body.message)    
 
     # call open ai api to complete chat
     input: str = " Previous Chats: \n" + context + "\n Message: \n" + body.message
     output: str = await ChatService.send_message(input)
 
     # add chatbot response to logs
-    await LogService.insert_message(db, body.thread_id, False, output)
+    await LogService.insert_message(db, body.thread_id, ChatRole.assistant, output)
 
     # send response to frontend 
     return ChatResponse(

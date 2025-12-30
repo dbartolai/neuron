@@ -3,12 +3,13 @@
 import asyncpg
 from typing import List
 from app.schemas.log import MessageLog
+from app.schemas.chat import ChatRole
 from uuid import UUID
 
 class LogService:
 
     @staticmethod
-    async def insert_message(db: asyncpg.Connection, thread_id: UUID, role: str, message: str) -> None:
+    async def insert_message(db: asyncpg.Connection, thread_id: UUID, role: ChatRole, message: str) -> None:
         query = """
             INSERT INTO chat_logs (thread_id, role, message)
             VALUES ($1, $2, $3)
