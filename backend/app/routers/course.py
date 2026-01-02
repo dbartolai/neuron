@@ -49,3 +49,9 @@ async def get_course_threads(course_id: UUID, db = Depends(get_db), user: User =
 async def get_course_name(course_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> str:
 
     return await CourseService.get_course_name_by_id(db, course_id)
+
+@router.get(path="/{course_id}/policy")
+async def get_course_policy(course_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> str:
+
+    return await CourseService.get_course_policy(db, course_id)
+

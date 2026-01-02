@@ -41,7 +41,7 @@ export default function CourseEnroll({ item }: CourseEnrollProps) {
 
         const code = codeInput;
 
-        const res = await fetch("http://localhost:8000/user/enroll", {
+        const res = await fetch("http://localhost:8000/student/enroll", {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${token}`,

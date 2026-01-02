@@ -5,7 +5,8 @@ from contextlib import asynccontextmanager
 from app.dependencies.db import init_pool, close_pool
 from app.routers import chat
 from app.routers import course
-from app.routers import user
+from app.routers import student
+from app.routers import instructor
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -33,4 +34,4 @@ app.add_middleware(
 # Include routers
 app.include_router(chat.router, prefix="/chat")
 app.include_router(course.router, prefix="/courses")
-app.include_router(user.router, prefix="/user")
+app.include_router(student.router, prefix="/student")

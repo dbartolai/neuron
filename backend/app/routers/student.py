@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.schemas.thread import CreateThreadResponse, ThreadRequest, GetThreadResponse
 from app.dependencies.db import get_db
 from app.dependencies.auth import me
 from app.services.thread_service import ThreadService
@@ -13,10 +12,10 @@ from typing import List, Optional
  
 
 
-router = APIRouter(tags=["user"])
+router = APIRouter(tags=["student"])
 
 @router.get(path="/sidebar", tags=["sidebar"])
-async def get_user_sidebar(db = Depends(get_db), user: User = Depends(me)):
+async def get_student_sidebar(db = Depends(get_db), user: User = Depends(me)):
 
     courses: List[UserCourse] = await CourseService.get_student_courses(db, user["id"])
 
@@ -42,7 +41,7 @@ async def get_user_sidebar(db = Depends(get_db), user: User = Depends(me)):
     return res
 
 @router.post(path="/enroll", tags=["enroll"])
-async def enroll_user( body: EnrollRequest, db = Depends(get_db), user: User = Depends(me)):
+async def enroll_student( body: EnrollRequest, db = Depends(get_db), user: User = Depends(me)):
 
     print("Starting to enroll")
 

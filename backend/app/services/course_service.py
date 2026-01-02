@@ -4,7 +4,7 @@
 
 import asyncpg
 from typing import List
-from app.schemas.course import UserCourse
+from app.schemas.course import UserCourse, NewCourse, CoursePolicy
 from uuid import UUID
 from fastapi import HTTPException
 
@@ -75,5 +75,29 @@ class CourseService:
             raise HTTPException(status_code=404, detail="Invalid course code")
 
         return course_id
+    
+    @staticmethod
+    async def new_course(db: asyncpg.Connection, course: NewCourse, instructor_id: UUID):
+        
+        query: str = """
+            INSERT INTO courses (name, code, instructor_id, allow_code_in, allow_code_out, allow_psuedocode_out, guardrail_level)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        """
+
+        await db.execute(query, course.name, course.code, instructor_id, course.allow_code_in, course.allow_code_out, course.allow_pseudocode_out, course.guardrail_level)
 
 
+                    
+
+    @staticmethod
+    async def get_course_policy(db: asyncpg.Connection, course_id: UUID) -> CoursePolicy:
+
+        query: str = """
+            SELECT name, allow_code_in, allow_code_out, allow_pseudocode_out, guardrail_level
+            FROM courses
+            WHERE id = $1
+        """
+
+        row = await db.fetchrow(query, course_id)
+
+        return CoursePolicy(**dict(row))

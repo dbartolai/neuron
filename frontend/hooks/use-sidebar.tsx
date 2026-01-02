@@ -87,7 +87,7 @@ export function useSidebar() : Sidebar {
             
             const token = await getAccessToken();
 
-            const res = await fetch ("http://localhost:8000/user/sidebar", {
+            const res = await fetch ("http://localhost:8000/student/sidebar", {
                 method: "GET",
                 headers: {
                     Authorization: `Bearer ${token}`
