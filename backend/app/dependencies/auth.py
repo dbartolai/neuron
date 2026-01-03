@@ -4,6 +4,8 @@ from jwt import PyJWKClient
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas.user import User
+from app.dependencies.db import get_db
+from uuid import UUID
 
 security = HTTPBearer()
 
@@ -33,10 +35,27 @@ def me(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
             detail=f"Could not verify token: {str(e)}",
         )
 
-    print(payload["sub"])
 
     return {
         "id": payload["sub"],
         "email": payload.get("email"),
         "role": payload.get("role", "authenticated"),
     }
+
+async def require_admin(
+    user: User = Depends(me),
+    db = Depends(get_db),
+) -> User:
+    # Look up app role from your profiles table
+    row = await db.fetchrow(
+        "SELECT role FROM profiles WHERE id = $1",
+        UUID(user["id"]),
+    )
+
+    if row is None or row["role"] != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    return user
