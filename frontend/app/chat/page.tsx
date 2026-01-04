@@ -13,8 +13,6 @@ import { getAccessToken } from "@/lib/supabase/client"
 
 export default function Page() {
 
-  const router = useRouter();
-
   const { courses } = useSidebar();
 
   console.log("Courses:", courses);
@@ -31,7 +29,8 @@ export default function Page() {
         "Content-Type" : "application/json"
       },
       body: JSON.stringify({
-        email: "charlie.economou@gmail.com",
+        email: "dbartolai71605@icloud.com",
+        name: "Michael Jordan",
         note: "sending to self"
       })
     })

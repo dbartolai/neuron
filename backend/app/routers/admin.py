@@ -4,9 +4,9 @@ from app.dependencies.auth import me, require_admin
 from app.schemas.user import User
 from uuid import UUID
 from typing import List, Optional
-from app.schemas.admin import InviteRequest
+from app.schemas.invite import InviteRequest
 import secrets, hashlib
-from app.services.admin_service import AdminService
+from app.services.invite_service import InviteService
 from app.services.resend_service import ResendService
 
 
@@ -18,11 +18,11 @@ router = APIRouter(tags=["admin"])
 async def send_invite(body: InviteRequest, db = Depends(get_db), user: User = Depends(require_admin)):
 
     token = secrets.token_urlsafe(32)
-    hashed_token = AdminService.hash_token(token)
+    hashed_token = InviteService.hash_token(token)
 
     ResendService.send_invite_to_email(token, body.email)
 
-    AdminService.log_invite(db, body, hashed_token, user["id"])
+    await InviteService.log_invite(db, body, hashed_token, user["id"])
 
     
 

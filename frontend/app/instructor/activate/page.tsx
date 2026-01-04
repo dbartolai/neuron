@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -17,55 +18,85 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { supabase } from "@/lib/supabase/client"
+
+import { useActivate } from "@/hooks/use-activate"
+import { useSearchParams } from "next/navigation"
 
 
+enum TokenStatus {
+    ACCEPTED="accepted",
+    INVALID="invalid",
+    PENDING="pending"
+}
 
-export default function Page() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+interface TokenInfo {
+    name: string;
+    email: string;
+    status: TokenStatus
+}
 
-  const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+// First: Check that the token is still valid
+// You were invited as: Professor First Last, professor@school.edu
+// Set up your password
 
-    if (password !== confirmPassword) {
-      console.error("Passwords do not match")
-      return
+// Optionally:
+//  Change your display name
+//  Set up your first course
+
+export default function Activate() {
+
+    const searchParams = useSearchParams()
+    const token = searchParams.get("token") // string | null
+
+
+    const { status, name, setName, email, error } = useActivate(token);
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const router = useRouter();
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+
+        if (password !== confirmPassword) {
+            console.error("Passwords do not match")
+            return
+        }
+
+        console.log("signing up", { name, email })
+
+        const res =  await fetch("http://localhost:8000/invites/activate", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                token: token,
+                name: name,
+                password: password
+            })
+        })
+
+        if (!res.ok) throw new Error("couldn't add instructor");
+        const data = await res.json();
+
+        console.log("signup error:", error)
+
+        if (error == null) {
+            router.push(data.magic_link);
+        }
+
     }
-
-    console.log("signing up", { name, email })
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-        },
-      },
-    })
-
-    console.log("signup data:", data)
-    console.log("signup error:", error)
-
-    if (error == null) {
-      router.push("/chat")
-    }
-
-  }
+    
 
 
 
-  return (
+    return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
+    <div className="w-full max-w-sm">
     <Card >
       <CardHeader>
-        <CardTitle>Create an account</CardTitle>
+        <CardTitle>Redeem Instructor Invite</CardTitle>
         <CardDescription>
           Enter your information below to create your account
         </CardDescription>
@@ -78,7 +109,7 @@ export default function Page() {
               <Input 
                 id="name"
                 type="text" 
-                placeholder="John Doe" 
+                placeholder={name}
                 value={name}
                 onChange={(e) => {setName(e.target.value)}}
                 required />
@@ -88,13 +119,13 @@ export default function Page() {
               <Input
                 id="email"
                 type="email"
-                placeholder="m@example.com"
+                disabled
+                placeholder={email}
                 value={email}
-                onChange={(e) => {setEmail(e.target.value)}}
-                required
+                
               />
               <FieldDescription>
-                We will not share your email with anyone else.
+                Your email is saved from your invitation
               </FieldDescription>
             </Field>
             <Field>
@@ -142,5 +173,10 @@ export default function Page() {
     </Card>
       </div>
     </div>
-  )
+
+    )
 }
+
+
+
+

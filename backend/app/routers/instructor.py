@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.dependencies.db import get_db
 from app.dependencies.auth import me
-from app.schemas.user import User
+from app.schemas.user import User, InstructorActivate, ProfileRole
 from uuid import UUID
 from typing import List, Optional
 from app.services.course_service import CourseService
@@ -21,3 +21,8 @@ async def get_instructor_courses(db = Depends(get_db), user: User = Depends(me))
 async def new_course(body: NewCourse, db = Depends(get_db), user: User = Depends(me)):
 
     await CourseService.new_course(db, body, user["id"])
+
+
+
+
+

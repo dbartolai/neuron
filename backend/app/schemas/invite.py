@@ -24,5 +24,15 @@ class Invite(BaseModel):
     note: str
 
 class InviteRequest(BaseModel):
+    name: str
     email: str
     note: str
+
+class Token(BaseModel):
+    raw_token: str
+
+class TokenInfo(BaseModel):
+    name: str
+    email: str
+    status: InviteStatus
+    

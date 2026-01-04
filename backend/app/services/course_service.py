@@ -100,4 +100,7 @@ class CourseService:
 
         row = await db.fetchrow(query, course_id)
 
+        if row is None:
+            return None
+
         return CoursePolicy(**dict(row))

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from enum import Enum
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 
 class ProfileRole(str, Enum):
     student="student"
@@ -12,3 +12,8 @@ class User(BaseModel):
     id: UUID
     role: ProfileRole
     name: str
+
+class InstructorActivate(BaseModel):
+    token: str
+    name: str
+    password: str

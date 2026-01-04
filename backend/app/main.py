@@ -8,6 +8,7 @@ from app.routers import course
 from app.routers import student
 from app.routers import instructor
 from app.routers import admin
+from app.routers import invite
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -38,3 +39,4 @@ app.include_router(course.router, prefix="/courses")
 app.include_router(student.router, prefix="/student")
 app.include_router(instructor.router, prefix="/instructor")
 app.include_router(admin.router, prefix="/admin")
+app.include_router(invite.router, prefix="/invites")

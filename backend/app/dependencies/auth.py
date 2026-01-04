@@ -6,6 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.schemas.user import User
 from app.dependencies.db import get_db
 from uuid import UUID
+import asyncpg
 
 security = HTTPBearer()
 
@@ -44,7 +45,7 @@ def me(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
 
 async def require_admin(
     user: User = Depends(me),
-    db = Depends(get_db),
+    db: asyncpg.Connection = Depends(get_db),
 ) -> User:
     # Look up app role from your profiles table
     row = await db.fetchrow(
