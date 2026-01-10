@@ -1,11 +1,12 @@
-
 interface Props {
-    text: string
+  text: string
 }
-export default function TypographyH1({text}: Props) {
+
+export default function H1({ text }: Props) {
   return (
     <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
-        {text}
+      {text}
     </h1>
   )
 }
+

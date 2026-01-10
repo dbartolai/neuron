@@ -93,7 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {!isLoading && !error && <NavMain items={navMain} />}
         {/* <NavProjects projects={data.projects} /> */}
         <NavSecondary items={[
-          {title: "New Course", url: "http://localhost:3000/", icon: PlusCircle,},
+          {title: "New Course", url: "http://localhost:3000/instructor/create", icon: PlusCircle,},
         ]} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
