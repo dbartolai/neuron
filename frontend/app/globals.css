@@ -45,71 +45,109 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+
+  /* Warm parchment / beige system (Claude-like) */
+  --background: oklch(0.985 0.012 85);          /* warm off-white */
+  --foreground: oklch(0.205 0.020 70);          /* warm charcoal */
+
+  --card: oklch(0.995 0.008 85);                /* slightly lighter than bg */
+  --card-foreground: var(--foreground);
+
+  --popover: oklch(0.995 0.008 85);
+  --popover-foreground: var(--foreground);
+
+  /* Primary: keep understated; don't make buttons shout */
+  --primary: oklch(0.260 0.020 70);             /* deep warm charcoal */
+  --primary-foreground: oklch(0.985 0.012 85);  /* warm bg */
+
+  /* Secondary/muted surfaces: soft paper layers */
+  --secondary: oklch(0.965 0.014 85);
+  --secondary-foreground: oklch(0.240 0.018 70);
+
+  --muted: oklch(0.960 0.014 85);
+  --muted-foreground: oklch(0.520 0.020 70);    /* warm gray */
+
+  /* Accent: your "selection" color (muted teal from your palette) */
+  --accent: oklch(0.925 0.030 190);             /* very light teal wash */
+  --accent-foreground: oklch(0.300 0.050 190);  /* teal text/icon */
+
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+
+  /* Borders/inputs: softer + warmer */
+  --border: oklch(0.900 0.012 85);
+  --input: oklch(0.900 0.012 85);
+  --ring: oklch(0.740 0.030 190);               /* teal-ish focus ring */
+
+  /* Optional charts (leave if you use them; these are fine) */
   --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-2: oklch(0.600 0.118 184.704);
+  --chart-3: oklch(0.398 0.070 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+
+  /* Sidebar as a distinct paper layer */
+  --sidebar: oklch(0.970 0.013 85);             /* slightly darker than bg */
+  --sidebar-foreground: var(--foreground);
+
+  /* Sidebar "primary" used by some sidebar components */
+  --sidebar-primary: oklch(0.300 0.050 190);     /* teal (for active/brand) */
+  --sidebar-primary-foreground: oklch(0.985 0.012 85);
+
+  /* Sidebar accent = selection background */
+  --sidebar-accent: oklch(0.925 0.030 190);      /* light teal wash */
+  --sidebar-accent-foreground: oklch(0.300 0.050 190);
+
+  --sidebar-border: oklch(0.900 0.012 85);
+  --sidebar-ring: oklch(0.740 0.030 190);
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
+  /* Warm dark mode (not pure black) */
+  --background: oklch(0.160 0.012 70);          /* deep warm slate */
+  --foreground: oklch(0.970 0.010 85);          /* warm near-white */
+
+  --card: oklch(0.210 0.012 70);
+  --card-foreground: var(--foreground);
+
+  --popover: oklch(0.210 0.012 70);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.970 0.010 85);
+  --primary-foreground: oklch(0.210 0.012 70);
+
+  --secondary: oklch(0.240 0.012 70);
+  --secondary-foreground: var(--foreground);
+
+  --muted: oklch(0.240 0.012 70);
+  --muted-foreground: oklch(0.720 0.012 85);
+
+  /* Accent remains teal, but subdued */
+  --accent: oklch(0.260 0.030 190);
+  --accent-foreground: oklch(0.920 0.020 190);
+
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
+
+  --border: oklch(0.970 0.010 85 / 10%);
+  --input: oklch(0.970 0.010 85 / 14%);
+  --ring: oklch(0.720 0.030 190);
+
   --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-2: oklch(0.696 0.170 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+
+  --sidebar: oklch(0.190 0.012 70);
+  --sidebar-foreground: var(--foreground);
+
+  --sidebar-primary: oklch(0.720 0.030 190);
+  --sidebar-primary-foreground: oklch(0.160 0.012 70);
+
+  --sidebar-accent: oklch(0.240 0.012 70);
+  --sidebar-accent-foreground: oklch(0.920 0.020 190);
+
+  --sidebar-border: oklch(0.970 0.010 85 / 10%);
+  --sidebar-ring: oklch(0.720 0.030 190);
 }
 
 .chat-scroll {
@@ -139,6 +177,10 @@
     @apply bg-background text-foreground overscroll-none overflow-x-hidden;
   }
   .hljs {
-    @apply bg-transparent!; 
+    background: var(--card);
+    color: var(--primary-foreground);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 0.875rem 1rem;
+
   }
 }

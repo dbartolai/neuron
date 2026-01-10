@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation"
 import { useSidebar } from "@/hooks/use-sidebar"
 import CourseSelect from "@/components/chat/course-select"
 import { getAccessToken } from "@/lib/supabase/client"
-
+import EmptyDashboard from "@/components/student/empty"
 
 export default function Page() {
 
@@ -32,6 +32,7 @@ export default function Page() {
         email: "dbartolai71605@icloud.com",
         name: "Michael Jordan",
         note: "sending to self"
+        // password = InstructorPassword
       })
     })
 
@@ -43,8 +44,10 @@ export default function Page() {
 
     console.log("DATA:", data);
   }
-
+  
   return (
+    <>
+    { courses.length > 0 ? (
     <div className=" min-h-screen flex flex-col items-center justify-center" >
       <h3 className="text-lg mb-3">Select a course to begin chatting.</h3>
       <div className="flex flex-col gap-2 max-w-md">
@@ -53,6 +56,10 @@ export default function Page() {
         ))}
         <Button onClick={sendInvite}>Send Invite!</Button>
       </div>
-    </div>    
+    </div>  ):(
+      <EmptyDashboard/>
+    )
+    }
+    </>   
   )
 }

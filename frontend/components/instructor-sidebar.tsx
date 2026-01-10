@@ -38,7 +38,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-import { useSidebar } from "@/hooks/use-sidebar"
+import { useInstructor } from "@/hooks/use-instructor"
 import { useParams } from "next/navigation"
 
 
@@ -47,7 +47,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const { courseId } = useParams<{ courseId?: string; threadId?: string}>()
 
-  const { courses, user, isLoading, error } = useSidebar();
+  const { courses, user, isLoading, error } = useInstructor();
 
   const navMain = React.useMemo(() => {
     return courses.map((c) => ({
@@ -55,7 +55,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: c.url,
       icon: c.icon,
       isActive: courseId === c.id,
-      items: c.items,
     }));
   }, [courses, courseId]);
 
@@ -94,7 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {!isLoading && !error && <NavMain items={navMain} />}
         {/* <NavProjects projects={data.projects} /> */}
         <NavSecondary items={[
-          {title: "Add Course", url: "#", icon: PlusCircle,},
+          {title: "New Course", url: "http://localhost:3000/", icon: PlusCircle,},
         ]} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

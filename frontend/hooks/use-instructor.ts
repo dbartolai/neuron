@@ -5,15 +5,13 @@ import { getAccessToken, supabase } from "@/lib/supabase/client"
 import { LucideIcon, SquareTerminal } from "lucide-react"
 
 
-// get sidebar courses, user data, and college avatar
-type NavCourse = {
+
+
+type InstructorCourse = {
     id: string;
     title: string;
     url: string;
     icon: LucideIcon;
-    items: {title: string; url: string}[];
-    meta: {threadCount: number;};
-
 }
 
 type NavUser = {
@@ -23,7 +21,7 @@ type NavUser = {
 }
 
 type Sidebar = {
-    courses: NavCourse[];
+    courses: InstructorCourse[];
     user?: NavUser;
     isLoading: boolean;
     error: string | null;
@@ -43,9 +41,10 @@ type SidebarCourse = {
     thread_preview: GetThreadResponse[];
 }
 
+
 const DEFAULT_COURSE_ICON = SquareTerminal;
 
-function mapSidebar(courses: SidebarCourse[]): NavCourse[] {
+function mapSidebar(courses: SidebarCourse[]): InstructorCourse[] {
 
     return courses.map((c) => {
         const courseUrl = `/chat/${c.id}`;
@@ -69,9 +68,9 @@ function mapSidebar(courses: SidebarCourse[]): NavCourse[] {
 }
 
 
-export function useSidebar() : Sidebar {
+export function useInstructor() : Sidebar {
 
-    const [courses, setCourses] = React.useState<NavCourse[]>([]);
+    const [courses, setCourses] = React.useState<InstructorCourse[]>([]);
     const [user, setUser] = React.useState<NavUser>();
     const [error, setError] = React.useState<string | null>(null);
     const [isLoading, setIsLoading] = React.useState(false);
@@ -87,7 +86,7 @@ export function useSidebar() : Sidebar {
             
             const token = await getAccessToken();
 
-            const res = await fetch ("http://localhost:8000/student/sidebar", {
+            const res = await fetch ("http://localhost:8000/instructor/courses", {
                 method: "GET",
                 headers: {
                     Authorization: `Bearer ${token}`

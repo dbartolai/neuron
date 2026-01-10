@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase/client"
+import { getAccessToken, supabase } from "@/lib/supabase/client"
 import {
   Card,
   CardContent,
@@ -20,6 +20,9 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
+
+
+
 export default function Page({}: React.ComponentProps<"div">) {
 
   const [email, setEmail] = useState("");
@@ -27,21 +30,24 @@ export default function Page({}: React.ComponentProps<"div">) {
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault()
-  
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-  
+    e.preventDefault()
 
-      console.log("signup data:", data)
-      console.log("signup error:", error)
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-      if (error == null) {
-        router.push("/chat")
-      }
-    }
+
+    console.log("signup data:", data)
+    console.log("signup error:", error)
+
+    router.push("http://localhost:3000/");
+  }
+
+  const magicLink = async () => {
+    console.log("Magic Link");
+
+  }
 
   return (
 
@@ -89,8 +95,8 @@ export default function Page({}: React.ComponentProps<"div">) {
               </Field>
               <Field>
                 <Button type="submit">Login</Button>
-                <Button variant="outline" type="button">
-                  Login with Google
+                <Button variant="outline" type="button" onClick={magicLink}>
+                  Magic Link
                 </Button>
                 <FieldDescription className="text-center">
                   Don&apos;t have an account? <a href="signup">Sign up</a>

@@ -1,6 +1,12 @@
 from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
+from enum import Enum
+
+class ThreadType(str, Enum):
+    writing="writing"
+    testing="testing"
+    debugging="debugging"
 
 class ChatThread(BaseModel):
     id: UUID
@@ -8,6 +14,7 @@ class ChatThread(BaseModel):
     course_id: UUID
     updated_at: datetime
     title: str
+    thread_type: ThreadType
 
 class ThreadRequest(BaseModel):
     first_message: str
@@ -19,3 +26,4 @@ class GetThreadResponse(BaseModel):
     id: UUID
     updated_at: datetime
     title: str
+    thread_type: ThreadType | None

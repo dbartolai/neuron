@@ -59,7 +59,7 @@ class ThreadService:
     async def get_thread_preview_by_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID) -> List[GetThreadResponse]:
 
         query = """
-            SELECT id, updated_at, title
+            SELECT id, updated_at, title, thread_type
             FROM threads
             WHERE user_id = $2
             AND course_id = $1

@@ -53,3 +53,4 @@ async def enroll_student( body: EnrollRequest, db = Depends(get_db), user: User 
     print("USER:", user["id"])
 
     await EnrollService.enroll_student(db, user["id"], course_id)
+

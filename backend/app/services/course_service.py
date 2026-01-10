@@ -80,11 +80,11 @@ class CourseService:
     async def new_course(db: asyncpg.Connection, course: NewCourse, instructor_id: UUID):
         
         query: str = """
-            INSERT INTO courses (name, code, instructor_id, allow_code_in, allow_code_out, allow_psuedocode_out, guardrail_level)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO courses (name, code, instructor_id, writing_level, testing_level, debugging_level)
+            VALUES ($1, $2, $3, $4, $5, $6)
         """
 
-        await db.execute(query, course.name, course.code, instructor_id, course.allow_code_in, course.allow_code_out, course.allow_pseudocode_out, course.guardrail_level)
+        await db.execute(query, course.name, course.code, instructor_id, course.writing_level, course.testing_level, course.debugging_level)
 
 
                     
@@ -93,7 +93,7 @@ class CourseService:
     async def get_course_policy(db: asyncpg.Connection, course_id: UUID) -> CoursePolicy:
 
         query: str = """
-            SELECT name, allow_code_in, allow_code_out, allow_pseudocode_out, guardrail_level
+            SELECT name, writing_level, testing_level, debugging_level
             FROM courses
             WHERE id = $1
         """

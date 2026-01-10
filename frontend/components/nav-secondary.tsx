@@ -29,14 +29,14 @@ export function NavSecondary({
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild size="sm">
-                {item.title == "New Course" ? (
-                <CourseEnroll item={item}/>
+                {item.title === "Add Course" ? (
+                  <CourseEnroll item={item} />
                 ) : (
                   <a href={item.url ?? "#"}>
                     <item.icon />
                     <span>{item.title}</span>
                   </a>
-                )}
+                )}              
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
