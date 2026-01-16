@@ -37,8 +37,6 @@ type GetThreadResponse = {
 type SidebarCourse = {
     id: string;
     name: string;
-    thread_count: number;
-    thread_preview: GetThreadResponse[];
 }
 
 
@@ -47,13 +45,10 @@ const DEFAULT_COURSE_ICON = SquareTerminal;
 function mapSidebar(courses: SidebarCourse[]): InstructorCourse[] {
 
     return courses.map((c) => {
-        const courseUrl = `/chat/${c.id}`;
+        const courseUrl = `/instructor/dashboard/${c.id}`;
         const items = [
             {title: "+ New Thread", url: courseUrl},
-            ...c.thread_preview.map((t) => ({
-                title: t.title, 
-                url: `/chat/${c.id}/${t.id}`
-            })),
+            
         ];
 
         return {
@@ -61,8 +56,7 @@ function mapSidebar(courses: SidebarCourse[]): InstructorCourse[] {
             title: c.name,
             url: courseUrl,
             icon: DEFAULT_COURSE_ICON,
-            items, 
-            meta: {threadCount: c.thread_count}
+            items
         };
     });
 }

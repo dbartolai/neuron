@@ -11,7 +11,7 @@ export default function Page({ children }: { children: React.ReactNode }) {
   return (
      <SidebarProvider className="w-full min-h-svh">
       <AppSidebar />
-      <SidebarInset className="min-h-svh overflow-auto">
+      <SidebarInset className=" overflow-auto">
         {children}
       </SidebarInset>
     </SidebarProvider>

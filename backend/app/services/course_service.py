@@ -4,8 +4,9 @@
 
 import asyncpg
 from typing import List
-from app.schemas.course import UserCourse, NewCourse, CoursePolicy
+from app.schemas.course import UserCourse, NewCourse, CoursePolicy, PatchCourse, CourseFile, CourseFileRequest
 from uuid import UUID
+from app.schemas.user import Student
 from fastapi import HTTPException
 
 class CourseService:
@@ -93,7 +94,7 @@ class CourseService:
     async def get_course_policy(db: asyncpg.Connection, course_id: UUID) -> CoursePolicy:
 
         query: str = """
-            SELECT name, writing_level, testing_level, debugging_level
+            SELECT name, code, writing_level, testing_level, debugging_level
             FROM courses
             WHERE id = $1
         """
@@ -104,3 +105,176 @@ class CourseService:
             return None
 
         return CoursePolicy(**dict(row))
+    
+    @staticmethod
+    async def get_instructor_id_by_course(db: asyncpg.Connection, course_id: UUID):
+
+        query = """
+            SELECT instructor_id
+            FROM courses
+            WHERE id = $1
+        """
+
+        return await db.fetchval(query, course_id)
+    
+    @staticmethod
+    async def update_course(db: asyncpg.Connection, patch: PatchCourse, user_id: UUID):
+
+        instructor = await CourseService.get_instructor_id_by_course(patch.id)
+        if user_id != instructor:
+            raise PermissionError("Unauthorized to edit course") 
+
+        changes = patch.model_dump(exclude_unset=True)
+        changes.pop("id", None)
+
+        if not changes:
+            return await CourseService.get_course_policy(db, patch.id)
+        
+        set_parts: list[str] = []
+        values: list[str] = []
+        i=1
+
+        for field, value in changes.items():
+            set_parts.append(f"{field} = ${i}")
+            values.append(value)
+            i+=1
+
+        values.append(patch.id)
+        
+        query = f"""
+            UPDATE courses
+            SET {", ".join(set_parts)}
+            WHERE id = ${i}
+            RETURNING id, name, code, writing_level, testing_level, debugging_level
+        """
+
+        row = await db.fetchrow(query, *values)
+        if row is None:
+            raise LookupError("course not found")
+
+        return CoursePolicy(**dict(row)) 
+
+
+    @staticmethod
+    async def get_enrollment(db: asyncpg.Connection, course_id: UUID) -> List[Student]:
+
+        query = """
+            SELECT
+                e.student_id,
+                p.name
+            FROM enrollment e
+            JOIN profiles p ON p.id = e.student_id
+            WHERE e.course_id = $1
+        """
+
+        rows = await db.fetch(query, course_id)
+
+        return [
+            Student(id=row["student_id"], name=row["name"])
+            for row in rows
+        ]
+    
+
+    @staticmethod
+    async def get_enrollment_preview(db: asyncpg.Connection, course_id: UUID) -> List[Student]:
+
+        query = """
+            SELECT
+                e.student_id,
+                p.name
+            FROM enrollment e
+            JOIN profiles p ON p.id = e.student_id
+            WHERE e.course_id = $1
+            ORDER BY e.created_at DESC
+            LIMIT 5
+        """
+
+        rows = await db.fetch(query, course_id)
+
+        return [
+            Student(id=row["student_id"], name=row["name"])
+            for row in rows
+        ]
+
+    @staticmethod
+    async def get_vector_store(db: asyncpg.Connection, course_id: UUID) -> str | None:
+
+        query = """
+            SELECT vector_store_id
+            FROM courses
+            WHERE id = $1
+        """
+
+        return await db.fetchval(query, course_id)
+    
+    @staticmethod
+    async def get_course_code(db: asyncpg.Connection, course_id: UUID) -> str | None:
+
+        query = """
+            SELECT code
+            FROM courses
+            WHERE id = $1
+        """
+
+        return await db.fetchval(query, course_id)
+    
+    @staticmethod
+    async def add_vector_store(db: asyncpg.Connection, course_id: UUID, vector_store_id: str):
+
+        query = """
+            UPDATE courses
+            SET vector_store_id = $2
+            WHERE id = $1
+        """
+
+        await db.execute(query, course_id, vector_store_id)
+
+        return vector_store_id
+    
+    @staticmethod
+    async def add_coursefile(db: asyncpg.Connection, file: CourseFileRequest):
+
+        query = """
+            INSERT INTO course_files
+            (openai_file_id, supabase_filepath, size, name, course_id, mime_type)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+        """
+
+        return await db.fetchval(query, file.openai_file_id, file.supabase_path, file.size, file.name, file.course_id, file.mime_type)
+    
+    @staticmethod
+    async def get_course_files(db: asyncpg.Connection, course_id: UUID):
+
+        query = """
+            SELECT id, course_id, name, supabase_filepath, openai_file_id, size, mime_type
+            FROM course_files
+            WHERE course_id = $1
+        """
+
+        rows = await db.fetch(query, course_id)
+
+        return [CourseFile(**dict(row)) for row in rows]
+    
+    @staticmethod
+    async def get_course_file(db: asyncpg.Connection, file_id: UUID):
+
+        query = """
+            SELECT id, course_id, name, supabase_filepath, openai_file_id, size, mime_type
+            FROM course_files
+            WHERE id = $1
+        """
+
+        row = await db.fetchrow(query, file_id)
+
+        return CourseFile(**dict(row))
+    
+    @staticmethod
+    async def delete_course_file(db: asyncpg.Connection, file_id: UUID):
+        
+        query = """
+            DELETE FROM course_files
+            WHERE id = $1
+        """
+
+        await db.execute(query, file_id)

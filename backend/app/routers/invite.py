@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.dependencies.db import get_db
 from app.dependencies.auth import me
+from app.dependencies.client import supabase
 from app.schemas.user import User, InstructorActivate, ProfileRole
 from app.schemas.invite import InviteStatus, Token, TokenInfo
 from uuid import UUID
@@ -8,17 +9,12 @@ from typing import List, Optional
 from app.services.course_service import CourseService
 from app.services.invite_service import InviteService
 from app.schemas.course import NewCourse
-from supabase import create_client, Client
 import os
 
 
 
 
 router = APIRouter(tags=["invite"])
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]  
-
-supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 
 
@@ -37,7 +33,7 @@ async def activate_instructor(body: InstructorActivate, db = Depends(get_db)):
         raise HTTPException(status_code=404, detail="invalid token")
 
     try:
-        res = supabase_admin.auth.admin.create_user({
+        res = supabase.auth.admin.create_user({
             "email": email,
             "password": body.password,
             "user_metadata": {"role": (ProfileRole.instructor), "name": body.name},
@@ -55,7 +51,7 @@ async def activate_instructor(body: InstructorActivate, db = Depends(get_db)):
         raise HTTPException(status_code=409, detail="invite already used")
     
     try:
-       link_res = supabase_admin.auth.admin.generate_link({
+       link_res = supabase.auth.admin.generate_link({
            "type": "magiclink",
             "email": email,
             "options":{

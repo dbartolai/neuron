@@ -209,4 +209,3 @@ export function useChat(thread_id : string) : UseChatResponse {
     };
     
 }
-

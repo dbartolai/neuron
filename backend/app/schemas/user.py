@@ -13,6 +13,10 @@ class User(BaseModel):
     role: ProfileRole
     name: str
 
+class Student(BaseModel):
+    id: UUID
+    name: str
+
 class InstructorActivate(BaseModel):
     token: str
     name: str

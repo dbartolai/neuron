@@ -1,6 +1,7 @@
 
 type ModelLevel = {
   id: string
+  idx: number
   title: string
   description: string
   constraints: string[]
@@ -9,6 +10,7 @@ type ModelLevel = {
 export const WRITING_LEVELS: ModelLevel[] = [
     {
         id: "w-0",
+        idx: 0,
         title: "Level 0: Disabled",
         description: "Disable AI code creation functionality for students.",
         constraints: [
@@ -20,6 +22,7 @@ export const WRITING_LEVELS: ModelLevel[] = [
     },
     {
         id: "w-1",
+        idx: 1,
         title: "Level 1: Conceptual",
         description: "Access course materials and provide conceptual asistance",
         constraints: [
@@ -31,6 +34,7 @@ export const WRITING_LEVELS: ModelLevel[] = [
     },
     {
         id: "w-2",
+        idx: 2,
         title: "Level 2: Algorithmic",
         description: "Intoduces algorithmic reasoning without any code/pseudocode",
         constraints: [
@@ -42,6 +46,7 @@ export const WRITING_LEVELS: ModelLevel[] = [
     },
     {
         id: "w-3",
+        idx: 3,
         title: "Level 3: Pseudocode",
         description: "Provides pseudocode given a sufficient understanding from user",
         constraints: [
@@ -53,6 +58,7 @@ export const WRITING_LEVELS: ModelLevel[] = [
     },
     {
         id: "w-4",
+        idx: 4,
         title: "Level 4: Architecture",
         description: "Assist with architectural decisions without providing code solutions.",
         constraints: [
@@ -64,6 +70,7 @@ export const WRITING_LEVELS: ModelLevel[] = [
     },
     {
         id: "w-5",
+        idx: 5,
         title: "Level 5: Functions",
         description: "Hides code generation behind understanding",
         constraints: [
@@ -75,6 +82,7 @@ export const WRITING_LEVELS: ModelLevel[] = [
     },
     {
         id: "w-6",
+        idx: 6,
         title: "Level 6: System",
         description: "Disable AI code creation functionality for students.",
         constraints: [
@@ -86,6 +94,7 @@ export const WRITING_LEVELS: ModelLevel[] = [
     },
     {
         id: "w-7",
+        idx: 7,
         title: "Level 7: Unguarded",
         description: "Teach students how to work with a full-fledged coding assistant.",
         constraints: [
@@ -99,7 +108,8 @@ export const WRITING_LEVELS: ModelLevel[] = [
 
 export const TESTING_LEVEL: ModelLevel[] = [
     {
-        id: "w-0",
+        id: "t-0",
+        idx: 0,
         title: "Level 0: Disabled",
         description: "Disable AI test case functionality for students.",
         constraints: [
@@ -111,6 +121,7 @@ export const TESTING_LEVEL: ModelLevel[] = [
     },
     {
         id: "t-1",
+        idx: 1,
         title: "Level 1: Specs",
         description: "Stimulate ideas for test cases.",
         constraints: [
@@ -122,6 +133,7 @@ export const TESTING_LEVEL: ModelLevel[] = [
     },
     {
         id: "t-2",
+        idx: 2,
         title: "Level 2: Logic",
         description: "Provide general logic for test cases.",
         constraints: [
@@ -133,6 +145,7 @@ export const TESTING_LEVEL: ModelLevel[] = [
     },
     {
         id: "t-3",
+        idx: 3,
         title: "Level 3: Tailored",
         description: "Provide custom logic for test cases given student code.",
         constraints: [
@@ -144,7 +157,8 @@ export const TESTING_LEVEL: ModelLevel[] = [
     },
     {
         id: "t-4",
-        title: "Level 4: Code",
+        idx: 4,
+        title:"Level 4: Code",
         description: "Provide test cases for individual methods.",
         constraints: [
             "Students can copy and paste single methods along with desired inputs, outputs, and behavior.",
@@ -155,6 +169,7 @@ export const TESTING_LEVEL: ModelLevel[] = [
     },
     {
         id: "t-5",
+        idx: 5,
         title: "Level 5: Suite",
         description: "Provides entire test suites.",
         constraints: [
@@ -169,6 +184,7 @@ export const TESTING_LEVEL: ModelLevel[] = [
 export const DEBUGGING_LEVELS: ModelLevel[] = [
     {
         id: "d-0",
+        idx: 0,
         title: "Level 0: Disabled",
         description: "Disable AI debugging functionality for students.",
         constraints: [
@@ -180,6 +196,7 @@ export const DEBUGGING_LEVELS: ModelLevel[] = [
     },
     {
         id: "d-1",
+        idx: 1,
         title: "Level 1: Verbal",
         description: "Students must verbally explain their code.",
         constraints: [
@@ -191,6 +208,7 @@ export const DEBUGGING_LEVELS: ModelLevel[] = [
     },
     {
         id: "d-2",
+        idx: 2,
         title: "Level 2: TA-Like",
         description: "Students may input code but output is verbal",
         constraints: [
@@ -202,6 +220,7 @@ export const DEBUGGING_LEVELS: ModelLevel[] = [
     },
     {
         id: "d-3",
+        idx: 3,
         title: "Level 3: Highlighter",
         description: "Points to issues but won't fix them.",
         constraints: [
@@ -213,6 +232,7 @@ export const DEBUGGING_LEVELS: ModelLevel[] = [
     },
     {
         id: "d-4",
+        idx: 4,
         title: "Level 4: Code Out",
         description: "Receive code solutions for single functions.",
         constraints: [
@@ -224,6 +244,7 @@ export const DEBUGGING_LEVELS: ModelLevel[] = [
     },
     {
         id: "d-5",
+        idx: 5,
         title: "Level 5: All Hands",
         description: "Students use the full model for debugging.",
         constraints: [

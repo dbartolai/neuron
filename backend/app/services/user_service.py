@@ -26,3 +26,21 @@ class UserService:
         """
 
         return await db.fetchval(query, user_id)
+    
+    @staticmethod
+    async def verify_instructor_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID):
+
+        query = """
+            SELECT instructor_id
+            FROM courses
+            WHERE id = $1
+        """
+
+        instructor_id: UUID = await db.fetchval(query, course_id)
+
+        print(instructor_id)
+
+        print(user_id)
+
+        return str(instructor_id) == str(user_id)
+    

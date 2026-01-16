@@ -27,16 +27,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 
 import { useInstructor } from "@/hooks/use-instructor"
 import { useParams } from "next/navigation"
@@ -49,12 +39,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const { courses, user, isLoading, error } = useInstructor();
 
+
   const navMain = React.useMemo(() => {
     return courses.map((c) => ({
       title: c.title,
       url: c.url,
       icon: c.icon,
       isActive: courseId === c.id,
+      items: [{
+        title: `Test Chat`,
+        url: `http://localhost:3000/instructor/chat/${c.id}`
+      },
+      {
+        title: `Configure`,
+        url: `http://localhost:3000/instructor/dashboard/${c.id}`
+      }
+      ]
     }));
   }, [courses, courseId]);
 
@@ -90,7 +90,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </div>
         )}
 
-        {!isLoading && !error && <NavMain items={navMain} />}
+        {!isLoading && !error && courses.length > 0 && <NavMain items={navMain} />}
         {/* <NavProjects projects={data.projects} /> */}
         <NavSecondary items={[
           {title: "New Course", url: "http://localhost:3000/instructor/create", icon: PlusCircle,},

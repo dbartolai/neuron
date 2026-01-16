@@ -1,28 +1,155 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.dependencies.db import get_db
 from app.dependencies.auth import me
+from app.dependencies.client import supabase
 from app.schemas.user import User, InstructorActivate, ProfileRole
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from app.services.course_service import CourseService
-from app.schemas.course import NewCourse
+from app.services.user_service import UserService
+from app.schemas.course import NewCourse, PatchCourse, CourseFileRequest, CourseFile
+from openai import OpenAI
 
 
 
 
 router = APIRouter(tags=["instructor"])
+client = OpenAI()
 
 @router.get(path="/courses")
 async def get_instructor_courses(db = Depends(get_db), user: User = Depends(me)):
 
     return await CourseService.get_instructor_courses(db, user["id"])
 
-@router.post(path="/courses")
-async def new_course(body: NewCourse, db = Depends(get_db), user: User = Depends(me)):
 
+@router.post(path="/courses")
+async def create_course(body: NewCourse, db = Depends(get_db), user: User = Depends(me)):
+    
     await CourseService.new_course(db, body, user["id"])
 
 
+@router.patch(path="/courses")
+async def patch_course(body: PatchCourse, db = Depends(get_db), user: User = Depends(me)):
+
+    return await CourseService.update_course(db, body, user["id"])
+
+@router.get(path="/courses/{course_id}/enrollment")
+async def get_enrolled_students(course_id: UUID, db = Depends(get_db), user: User = Depends(me)):
+    
+    return await CourseService.get_enrollment(db, course_id)
+
+@router.get(path="/courses/{course_id}/enrollment/preview")
+async def get_enrolled_students(course_id: UUID, db = Depends(get_db), user: User = Depends(me)):
+    
+    return await CourseService.get_enrollment_preview(db, course_id)
+
+@router.post(path="/courses/{course_id}/files")
+async def upload_files(course_id: UUID, files: Annotated[List[UploadFile], File(...)], db = Depends(get_db), user: User = Depends(me)):
+
+    verified = await UserService.verify_instructor_course(db, course_id, user["id"])
+
+    if not verified:
+        raise HTTPException(401, "not authorized to view course")
+        
+    # check if vector store exists, otherwise create
+    vector_store_id = await CourseService.get_vector_store(db, course_id)
+
+    if not vector_store_id:
+        course_code = await CourseService.get_course_code(db, course_id)
+        vector_store = client.vector_stores.create(name=f"{course_code} – {course_id}") 
+        vector_store_id = vector_store.id
+        # MAKE SURE TO ADD VECTOR STORE ID TO DB
+        await CourseService.add_vector_store(db, course_id, vector_store_id)
+
+    res: List[UUID] = []
+
+    for file in files:
 
 
+        # Check that file is pdf, docx, or pptx
+        if file.content_type not in ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "text/markdown"]:
+            raise HTTPException(400, "Invalid file type. Only PDF, DOCX, and PPTX allowed.")
 
+        # read file into memory 
+        file_content = await file.read()
+
+        # send file to supabase storage
+        filepath = f"{course_id}/{file.filename}"
+        try:
+            supabase.storage.from_("course_files").upload(
+                path=filepath,
+                file=file_content,
+                file_options={"content-type": file.content_type}
+            )
+        except Exception as e:
+            raise HTTPException(500, f"file upload failed: {e}")
+            
+        # send file to openai vector store
+        try:
+            file_res = client.files.create(
+                file=(file.filename, file_content),
+                purpose="user_data"
+            )
+
+            file_id = file_res.id
+
+            client.vector_stores.files.create(
+                vector_store_id=vector_store_id,
+                file_id=file_id
+            )
+
+            saved_file: CourseFileRequest = CourseFileRequest(
+                course_id = course_id,
+                name = file.filename,
+                supabase_path=filepath,
+                openai_file_id=file_id,
+                size=file_res.bytes,
+                mime_type=file.content_type
+            )
+
+            new_id = await CourseService.add_coursefile(db, saved_file)
+            res.append(new_id)
+
+        except Exception as e:
+            
+            # remove file from supabase if not uploaded to openai
+            supabase.storage.from_("course_files").remove([filepath])
+            raise HTTPException(500, f"OpenAI Upload Failed: {str(e)}")
+        
+    return res
+
+@router.get(path="/courses/{course_id}/files")
+async def get_files(course_id: UUID, db = Depends(get_db), user = Depends(me)):
+
+    if await UserService.verify_instructor_course(db, course_id, user["id"]):
+
+        return await CourseService.get_course_files(db, course_id)
+    
+    else:
+        raise HTTPException(401, detail="Not authorized to ciew this course")
+        
+@router.delete(path="/courses/{course_id}/files/{file_id}")
+async def delete_file(course_id: UUID, file_id: UUID, db = Depends(get_db), user = Depends(me)):
+
+
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to ciew this course")
+
+
+    file: CourseFile = await CourseService.get_course_file(db, file_id)
+
+    try:
+        client.files.delete(file.openai_file_id)
+    except:
+        print("couldn't remove from openai")
+    
+    try:
+        supabase.storage.from_("course_files").remove(file.supabase_filepath)
+    except:
+        print("couldn't remove file from supabase storage")
+
+    await CourseService.delete_course_file(db, file_id)
+
+        
+
+        

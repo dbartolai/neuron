@@ -11,7 +11,7 @@ export default function Page({ children }: { children: React.ReactNode }) {
   return (
      <SidebarProvider className="w-full max-h-svh overflow-hidden">
       <AppSidebar />
-      <SidebarInset className="max-h-svh overflow-hidden">
+      <SidebarInset className=" overflow-hidden">
         {children}
       </SidebarInset>
     </SidebarProvider>

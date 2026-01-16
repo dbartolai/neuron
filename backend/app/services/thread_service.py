@@ -6,7 +6,7 @@
 import asyncpg
 from typing import Optional, List
 from uuid import UUID
-from app.schemas.thread import GetThreadResponse
+from app.schemas.thread import GetThreadResponse, ThreadType
 from fastapi import HTTPException
 
 class ThreadService:
@@ -87,15 +87,15 @@ class ThreadService:
     
     
     @staticmethod
-    async def create_thread_in_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID, thread_name: str) -> UUID:
+    async def create_thread_in_course(db: asyncpg.Connection, course_id: UUID, user_id: UUID, thread_name: str, thread_type: ThreadType) -> UUID:
         
         query = """
-            INSERT INTO threads (title, user_id, course_id)
-            VALUES ($3, $2, $1)
+            INSERT INTO threads (title, user_id, course_id, thread_type)
+            VALUES ($3, $2, $1, $4)
             RETURNING id
         """
 
-        row = await db.fetchrow(query, course_id, user_id, thread_name)
+        row = await db.fetchrow(query, course_id, user_id, thread_name, thread_type)
 
         return row["id"]
     

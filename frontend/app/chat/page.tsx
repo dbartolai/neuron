@@ -10,6 +10,7 @@ import { useSidebar } from "@/hooks/use-sidebar"
 import CourseSelect from "@/components/chat/course-select"
 import { getAccessToken } from "@/lib/supabase/client"
 import EmptyDashboard from "@/components/student/empty"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 
 export default function Page() {
 
@@ -47,6 +48,12 @@ export default function Page() {
   
   return (
     <>
+    <header className="flex h-16 shrink-0 items-center gap-2">
+      <div className="flex items-center gap-2 px-4">
+        <SidebarTrigger className="-ml-1" />
+      </div>
+    </header>
+
     { courses.length > 0 ? (
     <div className=" min-h-screen flex flex-col items-center justify-center" >
       <h3 className="text-lg mb-3">Select a course to begin chatting.</h3>

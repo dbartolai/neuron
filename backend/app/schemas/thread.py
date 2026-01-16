@@ -18,6 +18,7 @@ class ChatThread(BaseModel):
 
 class ThreadRequest(BaseModel):
     first_message: str
+    thread_type: ThreadType
 
 class CreateThreadResponse(BaseModel):
     id: UUID
