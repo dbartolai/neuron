@@ -1,16 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.schemas.thread import CreateThreadResponse, ThreadRequest, GetThreadResponse
+from app.schemas.thread import CreateThreadResponse, ThreadRequest, GetThreadResponse, ThreadType
 from app.dependencies.db import get_db
 from app.dependencies.auth import me
 from app.services.thread_service import ThreadService
 from app.services.chat_service import ChatService
 from app.services.course_service import CourseService
 from app.services.log_service import LogService
+from app.services.prompt_service import PromptService
 from app.schemas.user import User
 from app.schemas.course import CoursePolicy
+from app.schemas.chat import ChatRole, ChatResponse, MessageEntry
 from uuid import UUID
 from typing import List, Optional
-from app.schemas.chat import ChatRole
  
 
 
@@ -20,21 +21,101 @@ router = APIRouter(tags=["courses"])
 @router.post(path="/{course_id}/thread", response_model=CreateThreadResponse, status_code=201)
 async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depends(get_db), user: User = Depends(me)) -> Optional[UUID]:
     
-    # handle title creation
+    # Fetch course levels from database
+    levels_query = """
+        SELECT writing_level, testing_level, debugging_level
+        FROM courses
+        WHERE id = $1
+    """
+    course_row = await db.fetchrow(levels_query, course_id)
+    if course_row is None:
+        raise HTTPException(status_code=404, detail="course not found")
+
+    # Determine the appropriate level based on thread_type
+    thread_type: ThreadType = body.thread_type
+    if thread_type == ThreadType.writing:
+        level_idx = course_row["writing_level"]
+    elif thread_type == ThreadType.testing:
+        level_idx = course_row["testing_level"]
+    elif thread_type == ThreadType.debugging:
+        level_idx = course_row["debugging_level"]
+    else:
+        raise HTTPException(status_code=400, detail="invalid thread type")
+
+    level = PromptService.get_level(thread_type, level_idx)
+
+    # Handle title creation
     new_title: str = await ChatService.create_title(body.first_message)
 
-    # create new thread with title
+    # Create new thread with title
     thread_id = await ThreadService.create_thread_in_course(db, course_id=course_id, user_id=user["id"], thread_name=new_title, thread_type=body.thread_type)
 
-    # add first message to logs
+    # Add first message to logs
     await LogService.insert_message(db, thread_id, ChatRole.student, body.first_message)
-    
-    # send first message in thread
-    response: str = await ChatService.send_message(body.first_message)
 
-    # add response to logs
-    await LogService.insert_message(db, thread_id, ChatRole.assistant, response)
+    # Stage 1: Student rules evaluation
+    passed, details = await ChatService.evaluate_student_rules(body.first_message, level.get("student_rules", []))
+    if not passed:
+        violations = details.get("violations", [])
+        reasons = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Does not meet student rules."
+        system_msg = (
+            f"Your prompt did not pass the current course rules. Please revise and try again.\n"
+            f"Violations: {reasons}"
+        )
+        await LogService.insert_message(db, thread_id, ChatRole.assistant, system_msg)
+        return {"id": thread_id}
 
+    # Stage 2: Chat with guardrails
+    messages: List[MessageEntry] = [
+        MessageEntry(role=ChatRole.student, content=body.first_message, timestamp="")
+    ]
+
+    # Check if file_search is required and get vector store if available
+    requires_file_search: bool = bool(details.get("requires_file_search", False))
+    allow_file_search: bool = True
+
+    vector_store_id: str | None = None
+    if requires_file_search and allow_file_search:
+        vector_store_id = await CourseService.get_vector_store(db, course_id)
+
+    # Augment guardrails and response rules if file_search is available
+    guardrails = list(level.get("guardrails", []))
+    response_rules = list(level.get("response_rules", []))
+    if vector_store_id:
+        guardrails += [
+            "5. Use the file_search tool only when necessary to retrieve exact details from course files.",
+            "6. When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
+        ]
+        response_rules += [
+            "99. If file_search was used, include citations with filename and a minimal quoted snippet.",
+        ]
+
+    assistant_output: str = await ChatService.chat_with_guardrails(messages, guardrails, vector_store_id=vector_store_id)
+
+    # Stage 3: Response rule evaluation
+    resp_passed, resp_details = await ChatService.evaluate_response_rules(body.first_message, assistant_output, response_rules)
+
+    if not resp_passed:
+        violations = resp_details.get("violations", [])
+        vtext = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Unspecified violations"
+        corrective_guardrail = [
+            f"Follow all response rules strictly. Your previous response violated: {vtext}. Revise and answer again without violating any rules."
+        ]
+        assistant_output_retry: str = await ChatService.chat_with_guardrails(messages, guardrails + corrective_guardrail, vector_store_id=vector_store_id)
+        retry_passed, _ = await ChatService.evaluate_response_rules(body.first_message, assistant_output_retry, response_rules)
+        if retry_passed:
+            await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output_retry)
+            return {"id": thread_id}
+        else:
+            fail_msg = (
+                "I couldn't produce a response that met the course guardrails. "
+                "Please rephrase your request with more clarity or contact your instructor to adjust prompts."
+            )
+            await LogService.insert_message(db, thread_id, ChatRole.assistant, fail_msg)
+            return {"id": thread_id}
+
+    # Success on first attempt
+    await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output)
     return {"id": thread_id}
 
 
