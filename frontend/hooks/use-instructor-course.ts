@@ -39,6 +39,8 @@ interface Course {
 interface Student {
     id: string
     name: string
+    email: string
+    enrolled_at: string
 }
 
 export interface File {

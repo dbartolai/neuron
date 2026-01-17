@@ -51,6 +51,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {
         title: `Overview`,
         url: `http://localhost:3000/instructor/${c.id}`
+      },
+      {
+        title: `Students`,
+        url: `http://localhost:3000/instructor/students?courseId=${c.id}`
       }
       ]
     }));

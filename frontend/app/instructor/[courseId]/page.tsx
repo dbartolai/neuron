@@ -13,7 +13,7 @@ import { useInstructorCourse } from "@/hooks/use-instructor-course"
 import { Level } from "@/components/instructor/level"
 import { AddContext } from "@/components/instructor/dashboard/add-context"
 import { ViewContext } from "@/components/instructor/dashboard/view-context"  
-import { StudentsCard } from "@/components/instructor/dashboard/students"
+import { InboxCard } from "@/components/instructor/dashboard/students"
 import { InsightsCard } from "@/components/instructor/dashboard/insights"
 import { TestChatCard } from "@/components/instructor/dashboard/test-chat"
 import {
@@ -36,7 +36,7 @@ export default function CoursePage() {
 
   const router = useRouter();
 
-  const {courseName, courseCode, writingLevel, testingLevel, debuggingLevel, students, files, updateCourse } = useInstructorCourse(courseId);
+  const {courseName, courseCode, writingLevel, testingLevel, debuggingLevel, files, updateCourse } = useInstructorCourse(courseId);
   console.log("NAME: ", courseName)
 
   const handleLevelChange = async (levelType: string, levelIdx: number) => {
@@ -73,7 +73,7 @@ export default function CoursePage() {
         </div>
         <div className="flex flex-4 mt-10 justify-around">
           <div className="flex flex-col w-md">
-          <StudentsCard students={students}/>
+          <InboxCard courseId={courseId}/>
             <TestChatCard/>
           </div>
           <Tabs defaultValue="view">

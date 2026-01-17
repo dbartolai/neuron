@@ -176,16 +176,25 @@ class CourseService:
         query = """
             SELECT
                 e.student_id,
-                p.name
+                p.name,
+                COALESCE(au.email, '') as email,
+                e.created_at as enrolled_at
             FROM enrollment e
             JOIN profiles p ON p.id = e.student_id
+            LEFT JOIN auth.users au ON au.id = e.student_id
             WHERE e.course_id = $1
+            ORDER BY e.created_at DESC
         """
 
         rows = await db.fetch(query, course_id)
 
         return [
-            Student(id=row["student_id"], name=row["name"])
+            Student(
+                id=row["student_id"], 
+                name=row["name"],
+                email=row["email"] if row["email"] else "",
+                enrolled_at=row["enrolled_at"]
+            )
             for row in rows
         ]
     

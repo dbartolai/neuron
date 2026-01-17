@@ -6,82 +6,80 @@ import {
   CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { useParams } from "next/navigation"
-import { ExternalLink, Plus, Trash2 } from "lucide-react"
+import { useParams, useRouter } from "next/navigation"
+import { ExternalLink } from "lucide-react"
 import React from "react"
 
 
-// This card should display actionable students first
+// This card displays priority interactions with students
 // * If a student recently added the course and needs to be approved
 // * If a student asked a question and marked something for instructor review
 // * If a student made some kind of post/message to instructors
 // * If a student is making many problematic message requests
 
-interface Student {
+interface InboxItem {
   id: string
-  name: string
+  type: 'join_request' | 'discussion_post' | 'review_request' | 'problematic_activity'
+  studentId: string
+  studentName: string
+  message: string
+  timestamp: Date
+  priority: 'high' | 'medium' | 'low'
 }
 
-interface StudentProps {
-  students: Student[]
+interface InboxCardProps {
+  courseId: string
 }
 
-
-export function StudentsCard({ students }: StudentProps) {
-  const { courseId } = useParams<{ courseId: string }>();
+export function InboxCard({ courseId }: InboxCardProps) {
+  const router = useRouter();
+  // Placeholder for future inbox items - empty for now
+  const inboxItems: InboxItem[] = [];
 
   return (
     <Card className="w-full max-w-md bg-card h-min">
       <CardHeader>
-        <CardTitle>Manage Students</CardTitle>
+        <CardTitle>Inbox</CardTitle>
         <CardDescription>
-          View information about your students.
+          Priority interactions with students requiring your attention.
         </CardDescription>
         <CardAction>
-          <Button variant="ghost"><ExternalLink/></Button>
+          <Button 
+            variant="ghost"
+            onClick={() => router.push(`/instructor/students?courseId=${courseId}`)}
+          >
+            <ExternalLink/>
+          </Button>
         </CardAction>
       </CardHeader>
       <Separator orientation="horizontal"/>
       <CardContent>
-        <form onSubmit={(e) => e.preventDefault()}>
-          <div className="flex flex-col gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="file-0">Students</Label>
-
-              {students.map((item, idx) => (
-                <div key={item.id} className="flex items-center gap-2">
-                  <div
-                    id={`stu-${idx}`}
-                    className="flex-1"
-                  >
-                    {item.name}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Remove student"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+        {inboxItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No priority items at this time.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Discussion posts, join requests, and review requests will appear here.
+            </p>
           </div>
-        </form>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {inboxItems.map((item) => (
+              <div key={item.id} className="flex items-start gap-2 p-2 rounded-md hover:bg-muted/50">
+                <div className="flex-1">
+                  <div className="text-sm font-medium">{item.studentName}</div>
+                  <div className="text-xs text-muted-foreground">{item.message}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
-      <CardFooter>
-        <Button type="button"  className="w-full">
-          Add Student
-        </Button>
-      </CardFooter>
     </Card>
   )
 }
