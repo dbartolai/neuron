@@ -1,7 +1,7 @@
 "use client"
 
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,6 +18,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import { useActivate } from "@/hooks/use-activate"
 import { useSearchParams } from "next/navigation"
@@ -45,8 +46,7 @@ interface TokenInfo {
 //  Change your display name
 //  Set up your first course
 
-export default function Activate() {
-
+function ActivateForm() {
     const searchParams = useSearchParams()
     const token = searchParams.get("token") // string | null
 
@@ -178,6 +178,37 @@ export default function Activate() {
     )
 }
 
+function LoadingFallback() {
+    return (
+        <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+            <div className="w-full max-w-sm">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Redeem Instructor Invite</CardTitle>
+                        <CardDescription>
+                            Enter your information below to create your account
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    )
+}
 
-
+export default function Activate() {
+    return (
+        <Suspense fallback={<LoadingFallback />}>
+            <ActivateForm />
+        </Suspense>
+    )
+}
 
