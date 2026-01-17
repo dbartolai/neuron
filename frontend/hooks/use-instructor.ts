@@ -45,7 +45,7 @@ const DEFAULT_COURSE_ICON = SquareTerminal;
 function mapSidebar(courses: SidebarCourse[]): InstructorCourse[] {
 
     return courses.map((c) => {
-        const courseUrl = `/instructor/dashboard/${c.id}`;
+        const courseUrl = `/instructor/${c.id}`;
         const items = [
             {title: "+ New Thread", url: courseUrl},
             

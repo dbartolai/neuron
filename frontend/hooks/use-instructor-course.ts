@@ -19,6 +19,7 @@ export interface useCourseResponse {
 }
 
 interface PatchCourse {
+    id: string
     name?: string
     code?: string
     writing_level?: number

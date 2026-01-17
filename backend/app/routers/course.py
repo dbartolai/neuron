@@ -20,6 +20,11 @@ import json
 
 router = APIRouter(tags=["courses"])
 
+@router.get(path="/{course_id}/access")
+async def get_course_access(course_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> bool:
+    
+    return await CourseService.verify_access(db, course_id, user["id"])
+
 
 @router.post(path="/{course_id}/thread", response_model=CreateThreadResponse, status_code=201)
 async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depends(get_db), user: User = Depends(me)) -> Optional[UUID]:

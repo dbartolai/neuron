@@ -90,6 +90,7 @@ type SortDirection = "asc" | "desc"
 
 function sortInvites(
   invites: Array<{
+    id: string;
     name: string;
     email: string;
     created_at: string;
@@ -188,6 +189,7 @@ export default function AdminInvitesPage() {
   }
 
   return (
+    <>
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <div>
@@ -421,5 +423,6 @@ export default function AdminInvitesPage() {
         </CardContent>
       </Card>
     </div>
+    </>
   )
 }

@@ -15,6 +15,7 @@ import { AddContext } from "@/components/instructor/dashboard/add-context"
 import { ViewContext } from "@/components/instructor/dashboard/view-context"  
 import { StudentsCard } from "@/components/instructor/dashboard/students"
 import { InsightsCard } from "@/components/instructor/dashboard/insights"
+import { TestChatCard } from "@/components/instructor/dashboard/test-chat"
 import {
   Tabs,
   TabsContent,
@@ -35,8 +36,24 @@ export default function CoursePage() {
 
   const router = useRouter();
 
-  const {courseName, courseCode, writingLevel, testingLevel, debuggingLevel, students, files } = useInstructorCourse(courseId);
+  const {courseName, courseCode, writingLevel, testingLevel, debuggingLevel, students, files, updateCourse } = useInstructorCourse(courseId);
   console.log("NAME: ", courseName)
+
+  const handleLevelChange = async (levelType: string, levelIdx: number) => {
+    const patch: { id: string; writing_level?: number; testing_level?: number; debugging_level?: number } = {
+      id: courseId
+    };
+
+    if (levelType === "writing") {
+      patch.writing_level = levelIdx;
+    } else if (levelType === "testing") {
+      patch.testing_level = levelIdx;
+    } else if (levelType === "debugging") {
+      patch.debugging_level = levelIdx;
+    }
+
+    await updateCourse(patch);
+  };
 
   return (
         <>
@@ -50,12 +67,15 @@ export default function CoursePage() {
             <Muted text={courseCode}/>
         </div>
         <div className="flex justify-start min-h-0 gap-[5%] p-4 pt-0 overflow-x-hidden mx-auto w-[60%] min-w-[720px]">
-            <div className="w-[30%]"><Level id={`w-${writingLevel}`}/></div>
-            <div className="w-[30%]"><Level id={`t-${testingLevel}`}/></div>
-            <div className="w-[30%]"><Level id={`d-${debuggingLevel}`}/></div>
+            <div className="w-[30%]"><Level id={`w-${writingLevel}`} courseId={courseId} onLevelChange={handleLevelChange}/></div>
+            <div className="w-[30%]"><Level id={`t-${testingLevel}`} courseId={courseId} onLevelChange={handleLevelChange}/></div>
+            <div className="w-[30%]"><Level id={`d-${debuggingLevel}`} courseId={courseId} onLevelChange={handleLevelChange}/></div>
         </div>
         <div className="flex flex-4 mt-10 justify-around">
+          <div className="flex flex-col w-md">
           <StudentsCard students={students}/>
+            <TestChatCard/>
+          </div>
           <Tabs defaultValue="view">
             <TabsList>
               <TabsTrigger value="add">Add</TabsTrigger>
@@ -72,6 +92,7 @@ export default function CoursePage() {
           </Tabs>
           <InsightsCard/>
         </div>
+        
         </>
   )
 }

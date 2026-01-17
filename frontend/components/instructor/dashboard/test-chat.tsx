@@ -15,36 +15,23 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useParams } from "next/navigation"
 import { ExternalLink, Plus, Trash2 } from "lucide-react"
-import { H1, Lead, Muted } from "@/components/primitives"
 import React from "react"
 
 
-// This card should display insights into student activity and common issues/questions
-
-
-export function InsightsCard() {
+export function TestChatCard() {
   const { courseId } = useParams<{ courseId: string }>();
 
   return (
-    <Card className="w-md max-w-md bg-card h-min">
+    <Card className="w-full max-w-md bg-card h-min mt-5">
       <CardHeader>
-        <CardTitle>Insights</CardTitle>
+        <CardTitle>Test Chat</CardTitle>
         <CardDescription>
-          Check out what students are chatting about in the course.
+          Test the chat functionality of the course, exactly as a student sees it.
         </CardDescription>
         <CardAction>
-          <Button variant="ghost"><ExternalLink/></Button>
+          <Button variant="ghost" onClick={() => {window.open(`http://localhost:3000/chat/${courseId}`);}}><ExternalLink/></Button>
         </CardAction>
       </CardHeader>
-      <Separator orientation="horizontal"/>
-      <CardContent>
-        <Label>#TODO</Label>
-      </CardContent>
-      <CardFooter>
-        <Button type="button"  className="w-full">
-          Generate Insights
-        </Button>
-      </CardFooter>
     </Card>
   )
 }

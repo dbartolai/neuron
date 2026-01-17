@@ -30,6 +30,7 @@ import {
 
 import { useInstructor } from "@/hooks/use-instructor"
 import { useParams } from "next/navigation"
+import { Muted, MutedLeft } from "./primitives"
 
 
 
@@ -46,13 +47,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: c.url,
       icon: c.icon,
       isActive: courseId === c.id,
-      items: [{
-        title: `Test Chat`,
-        url: `http://localhost:3000/instructor/chat/${c.id}`
-      },
+      items: [
       {
-        title: `Configure`,
-        url: `http://localhost:3000/instructor/dashboard/${c.id}`
+        title: `Overview`,
+        url: `http://localhost:3000/instructor/${c.id}`
       }
       ]
     }));
@@ -90,7 +88,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </div>
         )}
 
-        {!isLoading && !error && courses.length > 0 && <NavMain items={navMain} />}
+        {!isLoading && !error && <NavMain items={navMain} />}
+        {!isLoading && !error && courses.length === 0 && <div className="mt-0"><Muted text="No courses yet"/></div>}
         {/* <NavProjects projects={data.projects} /> */}
         <NavSecondary items={[
           {title: "New Course", url: "http://localhost:3000/instructor/create", icon: PlusCircle,},

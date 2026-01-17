@@ -7,6 +7,7 @@ from uuid import UUID
 from typing import List, Optional, Annotated
 from app.services.course_service import CourseService
 from app.services.user_service import UserService
+from app.services.enroll_service import EnrollService
 from app.schemas.course import NewCourse, PatchCourse, CourseFileRequest, CourseFile
 from openai import OpenAI
 
@@ -25,8 +26,9 @@ async def get_instructor_courses(db = Depends(get_db), user: User = Depends(me))
 @router.post(path="/courses")
 async def create_course(body: NewCourse, db = Depends(get_db), user: User = Depends(me)):
     
-    await CourseService.new_course(db, body, user["id"])
-
+    id = await CourseService.new_course(db, body, user["id"])
+    await EnrollService.enroll_student(db, user["id"], id)
+    return id
 
 @router.patch(path="/courses")
 async def patch_course(body: PatchCourse, db = Depends(get_db), user: User = Depends(me)):

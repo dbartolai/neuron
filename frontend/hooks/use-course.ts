@@ -12,6 +12,7 @@ export interface CoursePolicy {
 }
 
 export interface useCourseResponse {
+    access: boolean;
     courseName: string
     courseError: string | null
     courseLoading: boolean
@@ -22,6 +23,7 @@ export interface useCourseResponse {
 
 export function useCourse(courseId: string): useCourseResponse {
 
+    const [access, setAccess] = useState<boolean>(false);
     const [courseName, setCourseName] = useState<string>("");
     const [courseError, setCourseError] = useState<string | null>(null);
     const [courseLoading, setCourseLoading] = useState(false);
@@ -31,6 +33,7 @@ export function useCourse(courseId: string): useCourseResponse {
     useEffect(() => {
 
         setCourseError(null);
+        setAccess(false);
         setCourseName("");
         setPolicy(null);
 
@@ -44,7 +47,18 @@ export function useCourse(courseId: string): useCourseResponse {
 
             try {
                 const token = await getAccessToken();
-                
+                const accessRes = await fetch (`http://localhost:8000/courses/${courseId}/access`, {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    signal: controller.signal,
+                });
+                if (!accessRes.ok) {
+                    throw new Error("course access fetch failed");
+                }
+                const accessData: boolean = await accessRes.json();
+                setAccess(accessData);
                 // Fetch course name
                 const courseRes = await fetch (`http://localhost:8000/courses/${courseId}/name`, {
                     method: "GET",
@@ -92,6 +106,7 @@ export function useCourse(courseId: string): useCourseResponse {
     }, [courseId])
 
     return {
+        access,
         courseName,
         courseError,
         courseLoading,

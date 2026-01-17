@@ -20,6 +20,7 @@ import {useCourse} from "@/hooks/use-course"
 import { useParams } from "next/navigation"
 import { getAccessToken } from "@/lib/supabase/client"
 import { ChatRole, ChatMessage, useChat } from "@/hooks/use-chat"
+import { H1, Muted } from "@/components/primitives"
 
 type ThreadType = "writing" | "testing" | "debugging"
 
@@ -52,7 +53,7 @@ export default function CoursePage() {
     courseId: string;
   }>();
 
-  const {courseName, policy, courseLoading, policyLoading} = useCourse(courseId);
+  const {access, courseName, policy, courseLoading, policyLoading} = useCourse(courseId);
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
@@ -262,6 +263,8 @@ export default function CoursePage() {
 
   return (
         <>
+        {access ? (
+          <>
         <header className="flex h-16 shrink-0 items-center gap-2">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
@@ -312,5 +315,10 @@ export default function CoursePage() {
           </div>
         </div>
         </>
+        ) : (<div className="flex flex-col items-center justify-center h-svh">
+          <H1 text="401: Unauthorized."/><Muted text="You do not have access to this course."/>
+          </div>
+        )}
+    </>
   )
 }

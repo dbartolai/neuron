@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import {
   BadgeCheck,
   Bell,
@@ -7,7 +8,9 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
+  Shield,
 } from "lucide-react"
+import Link from "next/link"
 
 import {
   Avatar,
@@ -30,21 +33,54 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-import { supabase } from "@/lib/supabase/client"
+import { supabase, getAccessToken } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
 
 export function NavUser({
   user,
+  isAdmin: isAdminProp = false,
 }: {
   user: {
     name: string
     email?: string
     avatar: string
   }
+  isAdmin?: boolean
 }) {
   const router = useRouter();
   const { isMobile } = useSidebar()
+  const [isAdmin, setIsAdmin] = useState(isAdminProp)
+
+  useEffect(() => {
+    // If isAdmin prop is provided, use it. Otherwise, fetch the role.
+    if (isAdminProp) {
+      setIsAdmin(true)
+      return
+    }
+
+    async function checkAdminRole() {
+      try {
+        const token = await getAccessToken()
+        const res = await fetch("http://localhost:8000/users/role", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (res.ok) {
+          const role = await res.json()
+          setIsAdmin(role === "admin")
+        }
+      } catch (error) {
+        // Silently fail - user is not admin
+        setIsAdmin(false)
+      }
+    }
+
+    checkAdminRole()
+  }, [isAdminProp])
 
   const logout = async () => {
     let { error } = await supabase.auth.signOut();
@@ -92,6 +128,19 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {isAdmin && (
+              <>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/invites">
+                      <Shield />
+                      Admin
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <Sparkles />

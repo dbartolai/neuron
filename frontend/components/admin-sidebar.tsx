@@ -4,6 +4,8 @@ import * as React from "react"
 import {
   Command,
   Mail,
+  Bot,
+  Settings2,
 } from "lucide-react"
 import Link from "next/link"
 import { NavUser } from "@/components/nav-user"
@@ -57,23 +59,46 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
         )}
 
         {!isLoading && !error && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Invites">
-                  <Link href="/admin/invites">
-                    <Mail />
-                    <span>Invites</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
+          <>
+            <SidebarGroup>
+              <SidebarGroupLabel>Admin</SidebarGroupLabel>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Invites">
+                    <Link href="/admin/invites">
+                      <Mail />
+                      <span>Invites</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+            <SidebarGroup>
+              <SidebarGroupLabel>Testing</SidebarGroupLabel>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Chat">
+                    <Link href="/chat">
+                      <Bot />
+                      <span>Chat</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Instructor">
+                    <Link href="/instructor">
+                      <Settings2 />
+                      <span>Instructor</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          </>
         )}
       </SidebarContent>
       <SidebarFooter>
-        {user && <NavUser user={user}/>}
+        {user && <NavUser user={user} isAdmin={true} />}
       </SidebarFooter>
     </Sidebar>
   )

@@ -5,6 +5,7 @@
 import asyncpg
 from typing import List
 from app.schemas.course import UserCourse, NewCourse, CoursePolicy, PatchCourse, CourseFile, CourseFileRequest
+from app.services.user_service import UserService
 from uuid import UUID
 from app.schemas.user import Student
 from fastapi import HTTPException
@@ -12,6 +13,18 @@ from fastapi import HTTPException
 class CourseService:
 
     @staticmethod
+    async def verify_access(db: asyncpg.Connection, course_id: UUID, user_id: UUID) -> bool:
+
+        query = """
+            SELECT student_id
+            FROM enrollment
+            WHERE course_id = $1 AND student_id = $2
+        """
+
+        student_id: UUID = await db.fetchval(query, course_id, user_id)
+
+        return student_id is not None
+
     async def get_student_courses(db: asyncpg.Connection, user_id: UUID) -> List[UserCourse]:
 
         query = """
@@ -83,9 +96,10 @@ class CourseService:
         query: str = """
             INSERT INTO courses (name, code, instructor_id, writing_level, testing_level, debugging_level)
             VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
         """
 
-        await db.execute(query, course.name, course.code, instructor_id, course.writing_level, course.testing_level, course.debugging_level)
+        return await db.fetchval(query, course.name, course.code, instructor_id, course.writing_level, course.testing_level, course.debugging_level)
 
 
                     
@@ -120,8 +134,9 @@ class CourseService:
     @staticmethod
     async def update_course(db: asyncpg.Connection, patch: PatchCourse, user_id: UUID):
 
-        instructor = await CourseService.get_instructor_id_by_course(patch.id)
-        if user_id != instructor:
+        verified = await UserService.verify_instructor_course(db, patch.id, user_id)
+
+        if not verified:
             raise PermissionError("Unauthorized to edit course") 
 
         changes = patch.model_dump(exclude_unset=True)
