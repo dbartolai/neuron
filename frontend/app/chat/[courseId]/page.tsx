@@ -22,6 +22,7 @@ import { getAccessToken } from "@/lib/supabase/client"
 import { ChatRole, ChatMessage, useChat } from "@/hooks/use-chat"
 import { H1, Muted } from "@/components/primitives"
 import { getApiUrl } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type ThreadType = "writing" | "testing" | "debugging"
 
@@ -262,9 +263,61 @@ export default function CoursePage() {
   // Show welcome screen when no messages and not creating
   const showWelcome = localMessages.length === 0 && !activeThreadId && !isCreating;
 
+  // Show skeleton while loading or when access is not yet determined
+  const isLoading = courseLoading || access === null;
+
   return (
         <>
-        {access ? (
+        {isLoading ? (
+          <>
+            <header className="flex h-16 shrink-0 items-center gap-2">
+              <div className="flex items-center gap-2 px-4">
+                <SidebarTrigger className="-ml-1" />
+                <Separator
+                  orientation="vertical"
+                  className="mr-2 data-[orientation=vertical]:h-4"
+                />
+                <Breadcrumb>
+                  <BreadcrumbList>
+                    <BreadcrumbItem className="hidden md:block">
+                      <Skeleton className="h-4 w-32" />
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator className="hidden md:block" />
+                    <BreadcrumbItem>
+                      <Skeleton className="h-4 w-24" />
+                    </BreadcrumbItem>
+                  </BreadcrumbList>
+                </Breadcrumb>
+              </div>
+            </header>
+            <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 pt-0 overflow-x-hidden">
+              <div className="flex w-full max-w-3xl mx-auto flex-1 min-h-0 flex-col gap-4 overflow-y-auto overscroll-none">
+                <div className="flex flex-col items-center justify-center h-full w-full max-w-3xl mx-auto px-4 py-8">
+                  <div className="flex flex-col gap-6 w-full">
+                    <div className="text-center">
+                      <Skeleton className="h-10 w-[60%] mx-auto mb-2" />
+                      <Skeleton className="h-4 w-[40%] mx-auto" />
+                    </div>
+                    <div className="h-32">
+                      <Skeleton className="h-full w-full rounded-lg" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Skeleton className="h-4 w-24" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-9 flex-1 rounded-md" />
+                        <Skeleton className="h-9 flex-1 rounded-md" />
+                        <Skeleton className="h-9 flex-1 rounded-md" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="w-full max-w-3xl mx-auto bg-background sticky bottom-0 z-10">
+                <Skeleton className="h-12 w-full rounded-lg" />
+              </div>
+            </div>
+          </>
+        ) : access ? (
           <>
         <header className="flex h-16 shrink-0 items-center gap-2">
           <div className="flex items-center gap-2 px-4">
@@ -316,8 +369,9 @@ export default function CoursePage() {
           </div>
         </div>
         </>
-        ) : (<div className="flex flex-col items-center justify-center h-svh">
-          <H1 text="401: Unauthorized."/><Muted text="You do not have access to this course."/>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-svh">
+            <H1 text="401: Unauthorized."/><Muted text="You do not have access to this course."/>
           </div>
         )}
     </>

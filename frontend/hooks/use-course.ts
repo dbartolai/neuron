@@ -13,7 +13,7 @@ export interface CoursePolicy {
 }
 
 export interface useCourseResponse {
-    access: boolean;
+    access: boolean | null;
     courseName: string
     courseError: string | null
     courseLoading: boolean
@@ -24,7 +24,7 @@ export interface useCourseResponse {
 
 export function useCourse(courseId: string): useCourseResponse {
 
-    const [access, setAccess] = useState<boolean>(false);
+    const [access, setAccess] = useState<boolean | null>(null);
     const [courseName, setCourseName] = useState<string>("");
     const [courseError, setCourseError] = useState<string | null>(null);
     const [courseLoading, setCourseLoading] = useState(false);
@@ -34,7 +34,7 @@ export function useCourse(courseId: string): useCourseResponse {
     useEffect(() => {
 
         setCourseError(null);
-        setAccess(false);
+        setAccess(null);
         setCourseName("");
         setPolicy(null);
 
