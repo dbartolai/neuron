@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,8 +11,6 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import {
-  SidebarInset,
-  SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import ChatInput from "@/components/chat/chat-input"
@@ -31,8 +28,14 @@ export default function ThreadPage() {
   }>();
 
   const {courseName} = useCourse(courseId);
-  const {threadName, messages, sendMessage} = useChat(threadId);
+  const {threadName, messages, sendMessage, isStreaming, streamingContent} = useChat(threadId);
   const [input, setInput] = useState("");
+
+  // Wrapper for sendMessage that clears input
+  const handleSend = async (content: string) => {
+    setInput("");
+    await sendMessage(content);
+  };
 
   return (
       <div className="flex h-svh flex-col overflow-hidden">
@@ -47,7 +50,7 @@ export default function ThreadPage() {
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href={`http://localhost:3000/chat/${courseId}`}>
+                  <BreadcrumbLink href={`/chat/${courseId}`}>
                     {courseName}
                   </BreadcrumbLink>
                 </BreadcrumbItem>
@@ -65,13 +68,17 @@ export default function ThreadPage() {
 
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-none chat-scroll">
             <div className="mx-auto w-full max-w-3xl px-4">
-              <MessageLog messages={messages} />
+              <MessageLog 
+                messages={messages} 
+                isStreaming={isStreaming}
+                streamingContent={streamingContent}
+              />
             </div>
           </div>
 
           <div className="shrink-0 bg-background w-auto">
             <div className="mx-auto w-full max-w-3xl px-4 py-4">
-              <ChatInput value={input} onChange={setInput} onSend={sendMessage} />
+              <ChatInput value={input} onChange={setInput} onSend={handleSend} />
             </div>
           </div>
 

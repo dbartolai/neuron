@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { AppSidebar } from "@/components/app-sidebar"
+import { useState, useRef, useCallback } from "react"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,61 +11,246 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import {
-  SidebarInset,
-  SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import ChatInput from "@/components/chat/chat-input"
 import MessageLog from "@/components/chat/message-log"
 import {useCourse} from "@/hooks/use-course"
 import { useParams } from "next/navigation"
-import { useRouter } from "next/navigation"
 import { getAccessToken } from "@/lib/supabase/client"
+import { ChatRole, ChatMessage, useChat } from "@/hooks/use-chat"
 
+// Helper function to parse SSE events from a chunk of text
+function parseSSEEvents(chunk: string): Array<{event: string, data: string}> {
+    const events: Array<{event: string, data: string}> = [];
+    const lines = chunk.split('\n');
+    
+    let currentEvent = '';
+    let currentData = '';
+    
+    for (const line of lines) {
+        if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+            currentData = line.slice(6);
+        } else if (line === '' && currentEvent && currentData) {
+            events.push({ event: currentEvent, data: currentData });
+            currentEvent = '';
+            currentData = '';
+        }
+    }
+    
+    return events;
+}
 
 export default function CoursePage() {
-
-  const params = useParams();
-  console.log(params);
 
   const { courseId } = useParams<{
     courseId: string;
   }>();
 
-  const router = useRouter();
-
   const {courseName} = useCourse(courseId);
   const [input, setInput] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
+  const [streamingContent, setStreamingContent] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Track the active thread ID after first message exchange
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  
+  // Use chat hook for follow-up messages (only activates when activeThreadId is set)
+  const chat = useChat(activeThreadId || "");
+  
+  // Token queue for smooth rendering (ChatGPT-like effect)
+  const tokenQueueRef = useRef<string[]>([]);
+  const drainIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fullContentRef = useRef<string>("");
+  const threadIdRef = useRef<string | null>(null);
 
-  const sendMessage = async () => {
+  // Start draining the token queue at a fixed interval
+  const startDraining = useCallback(() => {
+    if (drainIntervalRef.current) return;
+    
+    drainIntervalRef.current = setInterval(() => {
+      if (tokenQueueRef.current.length > 0) {
+        const token = tokenQueueRef.current.shift()!;
+        fullContentRef.current += token;
+        setStreamingContent(fullContentRef.current);
+      }
+    }, 20);
+  }, []);
 
-    // create thread as a POST at /courses/{courseid}/thread
-    const token = await getAccessToken();
+  // Stop draining the token queue
+  const stopDraining = useCallback(() => {
+    if (drainIntervalRef.current) {
+      clearInterval(drainIntervalRef.current);
+      drainIntervalRef.current = null;
+    }
+  }, []);
 
-    console.log("Sending Message:")
-    console.log(courseId)
-    console.log(input)
+  // Create first thread and stream response
+  const createThread = async () => {
+    if (!input.trim() || isCreating) return;
 
-    const res = await fetch(`http://localhost:8000/courses/${courseId}/thread`, {
+    const messageContent = input;
+    setInput("");
+    setLocalMessages([{ role: ChatRole.STUDENT, content: messageContent }]);
+    setIsCreating(true);
+    setIsStreaming(true);
+    setStreamingContent("");
+    
+    // Reset token queue for new stream
+    tokenQueueRef.current = [];
+    fullContentRef.current = "";
+    threadIdRef.current = null;
+    startDraining();
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const token = await getAccessToken();
+
+      const res = await fetch(`http://localhost:8000/courses/${courseId}/thread/stream`, {
         method: "POST",
         headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            first_message: input,
-        })
-    })
+          first_message: messageContent,
+        }),
+        signal: controller.signal,
+      });
 
-    if (!res.ok) {
-        throw new Error (`couldn't create thread: ${res.status}`);
+      if (!res.ok) {
+        throw new Error(`couldn't create thread: ${res.status}`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        const events = parseSSEEvents(buffer);
+        
+        for (const event of events) {
+          if (event.event === 'thread_created') {
+            try {
+              const data = JSON.parse(event.data);
+              threadIdRef.current = data.id;
+            } catch (e) {
+              console.error("Failed to parse thread_created event", e);
+            }
+          } else if (event.event === 'token') {
+            try {
+              const data = JSON.parse(event.data);
+              tokenQueueRef.current.push(data.content);
+            } catch (e) {
+              // Ignore parse errors
+            }
+          } else if (event.event === 'done') {
+            break;
+          }
+        }
+        
+        // Clear processed events from buffer
+        const lastDoubleNewline = buffer.lastIndexOf('\n\n');
+        if (lastDoubleNewline !== -1) {
+          buffer = buffer.slice(lastDoubleNewline + 2);
+        }
+      }
+
+      // Wait for queue to fully drain
+      const waitForDrain = () => {
+        return new Promise<void>((resolve) => {
+          const check = setInterval(() => {
+            if (tokenQueueRef.current.length === 0) {
+              clearInterval(check);
+              resolve();
+            }
+          }, 50);
+        });
+      };
+
+      await waitForDrain();
+      stopDraining();
+
+      // Store completed messages locally
+      const finalContent = fullContentRef.current;
+      setLocalMessages([
+        { role: ChatRole.STUDENT, content: messageContent },
+        { role: ChatRole.ASSISTANT, content: finalContent }
+      ]);
+      setIsStreaming(false);
+      setIsCreating(false);
+      setStreamingContent("");
+
+      // Switch to thread mode and update URL without navigation
+      if (threadIdRef.current) {
+        setActiveThreadId(threadIdRef.current);
+        window.history.replaceState({}, '', `/chat/${courseId}/${threadIdRef.current}`);
+      }
+
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        stopDraining();
+        tokenQueueRef.current = [];
+        fullContentRef.current = "";
+        return;
+      }
+      console.error("Error creating thread:", err);
+      stopDraining();
+      setIsCreating(false);
+      setIsStreaming(false);
+      setLocalMessages([]);
     }
-    
-    const data = await res.json();
-
-    // finally push route with new thread id
-    router.push(`/chat/${courseId}/${data.id}`)
   }
+
+  // Handle sending messages - routes to createThread or useChat.sendMessage
+  const handleSend = async () => {
+    if (activeThreadId) {
+      // Thread exists, use useChat's sendMessage for follow-ups
+      const content = input;
+      setInput("");
+      await chat.sendMessage(content);
+    } else {
+      // No thread yet, create one
+      await createThread();
+    }
+  };
+
+  // Determine which messages to display
+  // Before activeThreadId: show local messages
+  // After activeThreadId: prefer useChat messages (fetched from server), fall back to local
+  const displayMessages = activeThreadId && chat.messages.length > 0 
+    ? chat.messages 
+    : localMessages;
+
+  // Determine streaming state
+  const showStreaming = activeThreadId 
+    ? chat.isStreaming 
+    : isStreaming;
+  
+  const displayStreamingContent = activeThreadId 
+    ? chat.streamingContent 
+    : streamingContent;
+
+  // Determine breadcrumb text
+  const breadcrumbText = activeThreadId && chat.threadName 
+    ? chat.threadName 
+    : "New Chat";
 
   return (
         <>
@@ -86,7 +270,7 @@ export default function CoursePage() {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>New Chat</BreadcrumbPage>
+                  <BreadcrumbPage>{breadcrumbText}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
@@ -94,10 +278,18 @@ export default function CoursePage() {
         </header>
         <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 pt-0 overflow-x-hidden">
           <div className="flex w-full max-w-3xl mx-auto flex-1 min-h-0 flex-col gap-4 overflow-y-auto overscroll-none">
-            <MessageLog messages={[]}/>
+            <MessageLog 
+              messages={displayMessages}
+              isStreaming={showStreaming}
+              streamingContent={displayStreamingContent}
+            />
           </div>
           <div className="w-full max-w-3xl mx-auto bg-background sticky bottom-0 z-10">
-            <ChatInput value = {input} onChange={setInput} onSend={sendMessage} />
+            <ChatInput 
+              value={input} 
+              onChange={setInput} 
+              onSend={handleSend}
+            />
           </div>
         </div>
         </>

@@ -19,7 +19,7 @@ class ChatThread(BaseModel):
 
 class ThreadRequest(BaseModel):
     first_message: str
-    thread_type: Optional[ThreadType]
+    thread_type: Optional[ThreadType] = None
 
 class CreateThreadResponse(BaseModel):
     id: UUID

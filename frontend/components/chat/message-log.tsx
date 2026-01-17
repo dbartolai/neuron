@@ -1,26 +1,34 @@
 "use client"
 
 
-import { useChat, ChatMessage } from "@/hooks/use-chat"
+import { useEffect, useRef } from "react"
+import { ChatMessage } from "@/hooks/use-chat"
 import {ChatRole} from "@/hooks/use-chat"
 import UserMessage from "@/components/chat/user-message"
-import AssistantMessage from "./assistant-message"
+import AssistantMessage, { ThinkingIndicator } from "./assistant-message"
 
 type MessageLogProps = {
     messages: ChatMessage[]
+    isStreaming?: boolean
+    streamingContent?: string
 }
 
 
 
-export default function MessageLog( {messages}: MessageLogProps ) {
+export default function MessageLog( {messages, isStreaming = false, streamingContent = ""}: MessageLogProps ) {
+    
+    // Auto-scroll to bottom when new messages arrive or streaming content updates
+    const bottomRef = useRef<HTMLDivElement>(null);
+    
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages, streamingContent, isStreaming]);
 
     return (
         <>
         {messages.map((message: ChatMessage, index: number) => {
             
             if (message.role === ChatRole.STUDENT){
-                {console.log("user")}
-                {console.log(message.content)}
                 return (
                     <UserMessage
                         content={message.content}
@@ -28,8 +36,6 @@ export default function MessageLog( {messages}: MessageLogProps ) {
                     />
                 )
             } else if (message.role === ChatRole.ASSISTANT) {
-                {console.log("ceria")}
-                {console.log(message.content)}
                 return (
                     <AssistantMessage
                         content={message.content}
@@ -37,8 +43,23 @@ export default function MessageLog( {messages}: MessageLogProps ) {
                     />
                 )
             }
-        })} 
+            return null;
+        })}
         
+        {/* Show streaming content or thinking indicator */}
+        {isStreaming && (
+            streamingContent ? (
+                <AssistantMessage 
+                    content={streamingContent} 
+                    isStreaming={true}
+                />
+            ) : (
+                <ThinkingIndicator />
+            )
+        )}
+        
+        {/* Scroll anchor */}
+        <div ref={bottomRef} />
         </>
         
     )

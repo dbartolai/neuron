@@ -1,7 +1,7 @@
 "use client"
 
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {getAccessToken} from "@/lib/supabase/client"
 
 export const enum ChatRole  {
@@ -23,8 +23,33 @@ export interface UseChatResponse {
     sendMessage : (content: string) => Promise<void>;
     nameLoading: boolean;
     chatLoading: boolean;
+    isStreaming: boolean;
+    streamingContent: string;
     error: string | null;
     resetChat: () => void;
+}
+
+// Helper function to parse SSE events from a chunk of text
+function parseSSEEvents(chunk: string): Array<{event: string, data: string}> {
+    const events: Array<{event: string, data: string}> = [];
+    const lines = chunk.split('\n');
+    
+    let currentEvent = '';
+    let currentData = '';
+    
+    for (const line of lines) {
+        if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+            currentData = line.slice(6);
+        } else if (line === '' && currentEvent && currentData) {
+            events.push({ event: currentEvent, data: currentData });
+            currentEvent = '';
+            currentData = '';
+        }
+    }
+    
+    return events;
 }
 
 export function useChat(thread_id : string) : UseChatResponse {
@@ -33,7 +58,38 @@ export function useChat(thread_id : string) : UseChatResponse {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [nameLoading, setNameLoading] = useState(false);
     const [chatLoading, setChatLoading] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [streamingContent, setStreamingContent] = useState("");
     const [error, setError] = useState<string | null>(null);
+    
+    // Ref to track abort controller for streaming
+    const abortControllerRef = useRef<AbortController | null>(null);
+    
+    // Token queue for smooth rendering (ChatGPT-like effect)
+    const tokenQueueRef = useRef<string[]>([]);
+    const drainIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const fullContentRef = useRef<string>("");
+
+    // Start draining the token queue at a fixed interval
+    const startDraining = useCallback(() => {
+        if (drainIntervalRef.current) return; // Already draining
+        
+        drainIntervalRef.current = setInterval(() => {
+            if (tokenQueueRef.current.length > 0) {
+                const token = tokenQueueRef.current.shift()!;
+                fullContentRef.current += token;
+                setStreamingContent(fullContentRef.current);
+            }
+        }, 20); // 20ms = ~50 tokens/second, feels natural
+    }, []);
+
+    // Stop draining the token queue
+    const stopDraining = useCallback(() => {
+        if (drainIntervalRef.current) {
+            clearInterval(drainIntervalRef.current);
+            drainIntervalRef.current = null;
+        }
+    }, []);
 
     // reset if thread changes
     useEffect(() => {
@@ -78,9 +134,14 @@ export function useChat(thread_id : string) : UseChatResponse {
 
     // get message history in thread
     useEffect( () => {
-
+        // Clean up any ongoing streaming when thread changes
+        stopDraining();
+        tokenQueueRef.current = [];
+        fullContentRef.current = "";
+        
         setMessages([]);
-
+        setStreamingContent("");
+        setIsStreaming(false);
 
         if (!thread_id) return;
 
@@ -118,8 +179,6 @@ export function useChat(thread_id : string) : UseChatResponse {
                     }))
                 );
 
-                console.log("CHAT HOOK:");
-                console.log(messages);
             } catch (e: any) {
                 if (e?.name === 'AbortError') return;
                 setError( e || "unknown error");
@@ -127,20 +186,19 @@ export function useChat(thread_id : string) : UseChatResponse {
                 if (!controller.signal.aborted) setChatLoading(false);
             }
 
-            
-
         })();
 
         return () => controller.abort();
 
-    }, [thread_id]);
+    }, [thread_id, stopDraining]);
 
-    // message send logic
+    // message send logic with streaming
     const sendMessage = useCallback(
         async (content: string) => {
             
             setError(null);
 
+            // Add user message to the list immediately
             setMessages((prev) => [
                 ...prev,
                 {
@@ -149,16 +207,25 @@ export function useChat(thread_id : string) : UseChatResponse {
                 }
             ]);
 
-            setChatLoading(true);
+            setIsStreaming(true);
+            setStreamingContent("");
+            
+            // Reset token queue for new stream
+            tokenQueueRef.current = [];
+            fullContentRef.current = "";
+            startDraining();
+
+            // Create abort controller for this request
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
 
             try {
-
                 // find supabase access token
                 const token = await getAccessToken();
 
-                // send request to backend
-                const res = await fetch (
-                    `http://localhost:8000/chat`,
+                // send request to streaming endpoint
+                const res = await fetch(
+                    `http://localhost:8000/chat/stream`,
                     {
                         method: "POST",
                         headers: {
@@ -169,6 +236,7 @@ export function useChat(thread_id : string) : UseChatResponse {
                             message: content,
                             thread_id: thread_id
                         }),
+                        signal: controller.signal,
                     }
                 );
 
@@ -176,27 +244,115 @@ export function useChat(thread_id : string) : UseChatResponse {
                     throw new Error(`Backend Error: ${res.status}`);
                 }
 
-                const data = await res.json();
+                // Read the stream
+                const reader = res.body?.getReader();
+                if (!reader) {
+                    throw new Error("No response body");
+                }
 
-                setMessages((prev) => [
-                    ...prev,
-                    {
-                        role: ChatRole.ASSISTANT,
-                        content: data.reply
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // Parse SSE events from the buffer
+                    const events = parseSSEEvents(buffer);
+                    
+                    for (const event of events) {
+                        if (event.event === 'token') {
+                            try {
+                                const data = JSON.parse(event.data);
+                                // Push token to queue instead of updating state directly
+                                tokenQueueRef.current.push(data.content);
+                            } catch (e) {
+                                // Ignore parse errors
+                            }
+                        } else if (event.event === 'error') {
+                            try {
+                                const data = JSON.parse(event.data);
+                                // Split error message into words for smooth animation
+                                const words = data.message.split(' ');
+                                for (let i = 0; i < words.length; i++) {
+                                    tokenQueueRef.current.push(words[i] + (i < words.length - 1 ? ' ' : ''));
+                                }
+                            } catch (e) {
+                                // Ignore parse errors
+                            }
+                        } else if (event.event === 'done') {
+                            // Streaming complete
+                            break;
+                        }
                     }
-                ]);
+                    
+                    // Clear processed events from buffer
+                    // Keep only the incomplete part (after last double newline)
+                    const lastDoubleNewline = buffer.lastIndexOf('\n\n');
+                    if (lastDoubleNewline !== -1) {
+                        buffer = buffer.slice(lastDoubleNewline + 2);
+                    }
+                }
+
+                // Wait for queue to fully drain before moving to messages
+                const waitForDrain = () => {
+                    return new Promise<void>((resolve) => {
+                        const check = setInterval(() => {
+                            if (tokenQueueRef.current.length === 0) {
+                                clearInterval(check);
+                                resolve();
+                            }
+                        }, 50);
+                    });
+                };
+
+                await waitForDrain();
+                stopDraining();
+
+                // Move streaming content to messages
+                if (fullContentRef.current) {
+                    setMessages((prev) => [
+                        ...prev,
+                        {
+                            role: ChatRole.ASSISTANT,
+                            content: fullContentRef.current
+                        }
+                    ]);
+                }
+                
             } catch (err: any) {
+                if (err?.name === 'AbortError') {
+                    // Clean up on abort
+                    stopDraining();
+                    tokenQueueRef.current = [];
+                    fullContentRef.current = "";
+                    return;
+                }
                 setError(err.message || "unknown error");
             } finally {
-                setChatLoading(false);
+                setIsStreaming(false);
+                setStreamingContent("");
+                abortControllerRef.current = null;
             }
-        }, [thread_id]
+        }, [thread_id, startDraining, stopDraining]
     );
 
-    const resetChat = () => {
+    const resetChat = useCallback(() => {
+        // Abort any ongoing stream
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        // Stop draining and clear the token queue
+        stopDraining();
+        tokenQueueRef.current = [];
+        fullContentRef.current = "";
         setMessages([]);
+        setStreamingContent("");
+        setIsStreaming(false);
         setError(null);
-    }   
+    }, [stopDraining])   
 
     return {
         threadName,
@@ -204,6 +360,8 @@ export function useChat(thread_id : string) : UseChatResponse {
         sendMessage,
         nameLoading,
         chatLoading,
+        isStreaming,
+        streamingContent,
         error,
         resetChat
     };

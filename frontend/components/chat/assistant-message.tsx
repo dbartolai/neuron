@@ -5,10 +5,28 @@ import rehypeHighlight from "rehype-highlight"
 
 type AssistantMessageProps = {
   content: string
+  isStreaming?: boolean
+}
+
+// Pulsing thinking indicator shown while waiting for AI response
+export function ThinkingIndicator() {
+  return (
+    <div className="prose prose-invert max-w-none">
+      <h2>Ceria:</h2>
+      <div className="flex items-center gap-1 text-muted-foreground">
+        <span className="animate-pulse">Thinking</span>
+        <span className="flex gap-1">
+          <span className="animate-bounce [animation-delay:0ms]">.</span>
+          <span className="animate-bounce [animation-delay:150ms]">.</span>
+          <span className="animate-bounce [animation-delay:300ms]">.</span>
+        </span>
+      </div>
+    </div>
+  );
 }
 
 
-export default function AssistantMessage({ content }: AssistantMessageProps) {
+export default function AssistantMessage({ content, isStreaming = false }: AssistantMessageProps) {
   return (
     <div className="prose prose-invert max-w-none">
       <h2>Ceria:</h2>
@@ -43,6 +61,9 @@ export default function AssistantMessage({ content }: AssistantMessageProps) {
       >
         {content}
       </ReactMarkdown>
+      {isStreaming && (
+        <span className="inline-block w-2 h-4 bg-foreground animate-pulse ml-1" />
+      )}
     </div>
   );
 }

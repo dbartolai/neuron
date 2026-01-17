@@ -5,7 +5,7 @@
 """
 
 import json
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, AsyncGenerator
 from app.schemas.chat import ChatRequest, ChatResponse, MessageEntry
 from app.schemas.log import MessageLog
 from openai import OpenAI
@@ -98,6 +98,46 @@ class ChatService:
 
         response = client.responses.create(**kwargs)
         return response.output_text
+
+    # ------------ Stage 2b: Guardrailed Chat with Streaming ------------
+    @staticmethod
+    async def chat_with_guardrails_stream(
+        messages: List[MessageEntry],
+        guardrails: List[str],
+        vector_store_id: str | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Stream a chat response from OpenAI with guardrails prepended as system guidance.
+        Yields tokens as they arrive from the API.
+        If vector_store_id is provided, expose the file_search tool bound to that store.
+        """
+        system = (
+            "All responses must be valid GitHub-Flavored Markdown.\n"
+            "Do not emit HTML.\n"
+            "If writing code, use fenced code blocks with language tags.\n\n"
+        ) + _format_rules("Guardrails:", guardrails)
+
+        # Flatten provided messages to a single input string (responses.create)
+        buf = []
+        for m in messages:
+            buf.append(f"{m.role}: {m.content}")
+        convo = "\n".join(buf)
+
+        kwargs = {
+            "model": "gpt-4.1",
+            "input": system + "\n" + convo,
+            "stream": True,
+        }
+        if vector_store_id:
+            kwargs["tools"] = [{"type": "file_search"}]
+            kwargs["tool_resources"] = {"file_search": {"vector_store_ids": [vector_store_id]}}
+
+        # Stream the response - yields events as they arrive
+        response_stream = client.responses.create(**kwargs)
+        
+        for event in response_stream:
+            # Handle text delta events from the streaming response
+            if event.type == "response.output_text.delta":
+                yield event.delta
 
     # ------------ Stage 3: Response Rules Check ------------
     @staticmethod
