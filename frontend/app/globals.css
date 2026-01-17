@@ -177,10 +177,13 @@
     @apply bg-background text-foreground overscroll-none overflow-x-hidden;
   }
   .hljs {
-    background: var(--card);
-    color: var(--primary-foreground);
+    background: transparent !important;
+    color: var(--foreground);
     border-radius: calc(var(--radius) - 2px);
-    padding: 0.875rem 1rem;
+    padding: 0;
+  }
 
+  .hljs pre {
+    background: transparent !important;
   }
 }

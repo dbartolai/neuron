@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";import { ThemeProvider } from "@/components/theme-provider"
 import { AuthListener } from "@/components/auth/auth-listener";
-import "highlight.js/styles/github-dark.css"
+import "highlight.js/styles/github.css"
 import { Source_Serif_4 } from "next/font/google";
 
 const sourceSerif = Source_Serif_4({
