@@ -89,3 +89,58 @@ class ResendService:
 
         email = resend.Emails.send(params)
         return email
+
+    @staticmethod
+    def send_outreach_notification(email: str, role: str | None, notes: str | None):
+        """
+        Send an email notification to drakeab2@illinois.edu when a new outreach submission is received.
+        """
+        from datetime import datetime
+        
+        role_display = role if role else "Not specified"
+        notes_display = notes if notes else "No notes provided"
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        body = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8" />
+                <title>New Outreach Submission - Neuron</title>
+            </head>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff; color: #111827; line-height: 1.5; padding: 24px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td>
+                    <h2 style="margin: 0 0 16px 0;">New Outreach Submission</h2>
+
+                    <p style="margin: 0 0 16px 0;">
+                        A new outreach submission has been received on the Neuron landing page.
+                    </p>
+
+                    <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin: 24px 0;">
+                        <p style="margin: 0 0 8px 0;"><strong>Email:</strong> {email}</p>
+                        <p style="margin: 0 0 8px 0;"><strong>Interest:</strong> {role_display}</p>
+                        <p style="margin: 0 0 8px 0;"><strong>Notes:</strong> {notes_display}</p>
+                        <p style="margin: 0; color: #6b7280; font-size: 14px;"><strong>Submitted:</strong> {timestamp}</p>
+                    </div>
+
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                        This submission has been logged in the outreach database.
+                    </p>
+                    </td>
+                </tr>
+                </table>
+            </body>
+            </html>
+        """
+
+        params: resend.Emails.SendParams = {
+            "from": "Neuron <neuron@invites.ceria.io>",
+            "to": ["drakeab2@illinois.edu"],
+            "subject": f"New Outreach Submission: {email}",
+            "html": body
+        }
+
+        email_result = resend.Emails.send(params)
+        return email_result

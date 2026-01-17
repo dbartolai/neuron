@@ -187,3 +187,9 @@
     background: transparent !important;
   }
 }
+
+@layer utilities {
+  .font-serif {
+    font-family: var(--font-source-serif), serif;
+  }
+}

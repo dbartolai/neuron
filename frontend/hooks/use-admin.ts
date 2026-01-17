@@ -18,6 +18,17 @@ type Invite = {
   note: string;
 }
 
+type Outreach = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  notes: string | null;
+  created_at: string;
+  role: string | null;
+  inbound: boolean;
+}
+
 type NavUser = {
   name: string;
   email?: string;
@@ -32,6 +43,7 @@ interface SendInviteProps {
 
 type AdminHook = {
   invites: Invite[];
+  outreach: Outreach[];
   user?: NavUser;
   isLoading: boolean;
   error: string | null;
@@ -41,6 +53,7 @@ type AdminHook = {
 
 export function useAdmin(): AdminHook {
   const [invites, setInvites] = React.useState<Invite[]>([]);
+  const [outreach, setOutreach] = React.useState<Outreach[]>([]);
   const [user, setUser] = React.useState<NavUser>();
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -69,6 +82,22 @@ export function useAdmin(): AdminHook {
 
       const invitesData: Invite[] = await invitesRes.json();
       setInvites(invitesData);
+
+      // Fetch outreach
+      const outreachRes = await fetch(`${getApiUrl()}/admin/outreach`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        signal: controller.signal,
+      });
+
+      if (!outreachRes.ok) {
+        throw new Error(`couldn't load outreach: ${outreachRes.status}`);
+      }
+
+      const outreachData: Outreach[] = await outreachRes.json();
+      setOutreach(outreachData);
 
       // Fetch user data
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -126,5 +155,5 @@ export function useAdmin(): AdminHook {
     void refetch();
   }, [refetch]);
 
-  return { invites, user, isLoading, error, refetch, sendInvite };
+  return { invites, outreach, user, isLoading, error, refetch, sendInvite };
 }

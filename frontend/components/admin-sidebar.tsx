@@ -6,6 +6,7 @@ import {
   Mail,
   Bot,
   Settings2,
+  MessageSquare,
 } from "lucide-react"
 import Link from "next/link"
 import { NavUser } from "@/components/nav-user"
@@ -68,6 +69,14 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     <Link href="/admin/invites">
                       <Mail />
                       <span>Invites</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Outreach">
+                    <Link href="/admin/outreach">
+                      <MessageSquare />
+                      <span>Outreach</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
