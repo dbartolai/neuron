@@ -33,6 +33,8 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
 
     # Determine the appropriate level based on thread_type
     thread_type: ThreadType = body.thread_type
+    if thread_type is None:
+        thread_type = ThreadType.writing
     if thread_type == ThreadType.writing:
         level_idx = course_row["writing_level"]
     elif thread_type == ThreadType.testing:
