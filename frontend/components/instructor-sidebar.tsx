@@ -31,6 +31,7 @@ import {
 import { useInstructor } from "@/hooks/use-instructor"
 import { useParams } from "next/navigation"
 import { Muted, MutedLeft } from "./primitives"
+import { getFrontendUrl } from "@/lib/utils"
 
 
 
@@ -50,15 +51,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       items: [
       {
         title: `Overview`,
-        url: `http://localhost:3000/instructor/${c.id}`
+        url: `${getFrontendUrl()}/instructor/${c.id}`
       },
       {
         title: `Students`,
-        url: `http://localhost:3000/instructor/students?courseId=${c.id}`
+        url: `${getFrontendUrl()}/instructor/students?courseId=${c.id}`
       },
       {
         title: `Insights`,
-        url: `http://localhost:3000/instructor/${c.id}/insights`
+        url: `${getFrontendUrl()}/instructor/${c.id}/insights`
       }
       ]
     }));
@@ -100,7 +101,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {!isLoading && !error && courses.length === 0 && <div className="mt-0"><Muted text="No courses yet"/></div>}
         {/* <NavProjects projects={data.projects} /> */}
         <NavSecondary items={[
-          {title: "New Course", url: "http://localhost:3000/instructor/create", icon: PlusCircle,},
+          {title: "New Course", url: `${getFrontendUrl()}/instructor/create`, icon: PlusCircle,},
         ]} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getAccessToken, supabase } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 enum ProfileRole {
   STUDENT = "student",
@@ -33,7 +34,7 @@ export default function Home() {
 
         const token = await getAccessToken()
 
-        const res = await fetch("http://localhost:8000/users/role", {
+        const res = await fetch(`${getApiUrl()}/users/role`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,

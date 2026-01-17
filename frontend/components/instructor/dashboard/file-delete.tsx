@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Trash2 } from "lucide-react"
 import { getAccessToken } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 interface Props {
     course_id: string
@@ -25,7 +26,7 @@ export function DeleteFile({ course_id, file_id }: Props) {
 
         const token = await getAccessToken();
 
-        const res = await fetch(`http://localhost:8000/instructor/courses/${course_id}/files/${file_id}`, {
+        const res = await fetch(`${getApiUrl()}/instructor/courses/${course_id}/files/${file_id}`, {
             method: "DELETE",
             headers: {
                 Authorization: `Bearer ${token}`

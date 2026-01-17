@@ -13,6 +13,7 @@ import { ThreadList } from "./thread-list"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { getApiUrl } from "@/lib/utils"
 
 interface TagStatisticsCardProps {
   tag: string
@@ -37,7 +38,7 @@ export function TagStatisticsCard({ tag, count, percentage, courseId }: TagStati
     try {
       const token = await getAccessToken()
       const res = await fetch(
-        `http://localhost:8000/instructor/courses/${courseId}/insights/threads?tag=${encodeURIComponent(tag)}`,
+        `${getApiUrl()}/instructor/courses/${courseId}/insights/threads?tag=${encodeURIComponent(tag)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

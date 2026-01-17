@@ -17,6 +17,7 @@ import { useParams } from "next/navigation"
 import { ExternalLink, Plus, Trash2 } from "lucide-react"
 import React from "react"
 import { getAccessToken } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 
 export function AddContext() {
@@ -76,7 +77,7 @@ async function handleAddFiles() {
 
       const token = await getAccessToken(); 
 
-      const res = await fetch(`http://localhost:8000/instructor/courses/${courseId}/files`, {
+      const res = await fetch(`${getApiUrl()}/instructor/courses/${courseId}/files`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

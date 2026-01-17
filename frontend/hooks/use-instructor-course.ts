@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { getAccessToken } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 
 
@@ -74,7 +75,7 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
             try {
                 const token = await getAccessToken();
 
-                const courseRes = await fetch("http://localhost:8000/instructor/courses", {
+                const courseRes = await fetch(`${getApiUrl()}/instructor/courses`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -119,7 +120,7 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
 
             try {
                 const token = await getAccessToken();
-                const courseRes = await fetch (`http://localhost:8000/courses/${courseId}/policy`, {
+                const courseRes = await fetch (`${getApiUrl()}/courses/${courseId}/policy`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -152,7 +153,7 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
 
             try {
                 const token = await getAccessToken();
-                const studentsRes = await fetch (`http://localhost:8000/instructor/courses/${courseId}/enrollment/preview`, {
+                const studentsRes = await fetch (`${getApiUrl()}/instructor/courses/${courseId}/enrollment/preview`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -182,7 +183,7 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
 
             try {
                 const token = await getAccessToken();
-                const fileRes = await fetch (`http://localhost:8000/instructor/courses/${courseId}/files`, {
+                const fileRes = await fetch (`${getApiUrl()}/instructor/courses/${courseId}/files`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,

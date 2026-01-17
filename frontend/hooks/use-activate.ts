@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { getApiUrl } from "@/lib/utils"
 
 enum TokenStatus {
     ACCEPTED="accepted",
@@ -45,7 +46,7 @@ export function useActivate(token: string|null): useActivateResponse {
 
             try {
 
-                const res = await fetch ("http://localhost:8000/invites/info", {
+                const res = await fetch (`${getApiUrl()}/invites/info`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"

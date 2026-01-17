@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { getAccessToken } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 export interface CoursePolicy {
     name: string;
@@ -47,7 +48,7 @@ export function useCourse(courseId: string): useCourseResponse {
 
             try {
                 const token = await getAccessToken();
-                const accessRes = await fetch (`http://localhost:8000/courses/${courseId}/access`, {
+                const accessRes = await fetch (`${getApiUrl()}/courses/${courseId}/access`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -60,7 +61,7 @@ export function useCourse(courseId: string): useCourseResponse {
                 const accessData: boolean = await accessRes.json();
                 setAccess(accessData);
                 // Fetch course name
-                const courseRes = await fetch (`http://localhost:8000/courses/${courseId}/name`, {
+                const courseRes = await fetch (`${getApiUrl()}/courses/${courseId}/name`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -76,7 +77,7 @@ export function useCourse(courseId: string): useCourseResponse {
                 setCourseName(nameData);
 
                 // Fetch course policy
-                const policyRes = await fetch(`http://localhost:8000/courses/${courseId}/policy`, {
+                const policyRes = await fetch(`${getApiUrl()}/courses/${courseId}/policy`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,

@@ -9,6 +9,7 @@ import { Download, Loader2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
+import { getApiUrl } from "@/lib/utils"
 
 export default function FileViewerPage() {
   const { fileId } = useParams<{ fileId: string }>()
@@ -27,7 +28,7 @@ export default function FileViewerPage() {
         
         // Get file metadata and signed URL
         const urlRes = await fetch(
-          `http://localhost:8000/instructor/files/${fileId}/url`,
+          `${getApiUrl()}/instructor/files/${fileId}/url`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

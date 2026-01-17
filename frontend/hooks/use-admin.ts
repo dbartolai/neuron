@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { getAccessToken, supabase } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 type Invite = {
   id: string;
@@ -54,7 +55,7 @@ export function useAdmin(): AdminHook {
       const token = await getAccessToken();
 
       // Fetch invites
-      const invitesRes = await fetch("http://localhost:8000/admin/invites", {
+      const invitesRes = await fetch(`${getApiUrl()}/admin/invites`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -71,7 +72,7 @@ export function useAdmin(): AdminHook {
 
       // Fetch user data
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      const nameRes = await fetch("http://localhost:8000/users/name", {
+      const nameRes = await fetch(`${getApiUrl()}/users/name`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -99,7 +100,7 @@ export function useAdmin(): AdminHook {
   const sendInvite = React.useCallback(async ({ email, name, note }: SendInviteProps) => {
     const token = await getAccessToken();
 
-    const res = await fetch("http://localhost:8000/admin/invites", {
+    const res = await fetch(`${getApiUrl()}/admin/invites`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { getAccessToken, supabase } from "@/lib/supabase/client"
 import { LucideIcon, SquareTerminal } from "lucide-react"
+import { getApiUrl } from "@/lib/utils"
 
 
 // get sidebar courses, user data, and college avatar
@@ -87,7 +88,7 @@ export function useSidebar() : Sidebar {
             
             const token = await getAccessToken();
 
-            const res = await fetch ("http://localhost:8000/student/sidebar", {
+            const res = await fetch (`${getApiUrl()}/student/sidebar`, {
                 method: "GET",
                 headers: {
                     Authorization: `Bearer ${token}`
@@ -102,7 +103,7 @@ export function useSidebar() : Sidebar {
 
             // find user data
             const { data: {user}} = await supabase.auth.getUser();
-            const name_res = await fetch ("http://localhost:8000/users/name", {
+            const name_res = await fetch (`${getApiUrl()}/users/name`, {
                 method: "GET",
                 headers: {
                     Authorization: `Bearer ${token}`

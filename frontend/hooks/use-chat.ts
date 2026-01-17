@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {getAccessToken} from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 export const enum ChatRole  {
     STUDENT = "student",
@@ -108,7 +109,7 @@ export function useChat(thread_id : string) : UseChatResponse {
 
             try {
                 const token = await getAccessToken();
-                const name_res = await fetch(`http://localhost:8000/chat/${thread_id}/name`,{
+                const name_res = await fetch(`${getApiUrl()}/chat/${thread_id}/name`,{
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -160,7 +161,7 @@ export function useChat(thread_id : string) : UseChatResponse {
                 // get access token
                 const token = await getAccessToken();
 
-                const res = await fetch(`http://localhost:8000/chat/${thread_id}`, {
+                const res = await fetch(`${getApiUrl()}/chat/${thread_id}`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -229,7 +230,7 @@ export function useChat(thread_id : string) : UseChatResponse {
 
                 // send request to streaming endpoint
                 const res = await fetch(
-                    `http://localhost:8000/chat/stream`,
+                    `${getApiUrl()}/chat/stream`,
                     {
                         method: "POST",
                         headers: {

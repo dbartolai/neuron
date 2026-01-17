@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { useParams } from "next/navigation"
 import { ExternalLink, Plus, Trash2 } from "lucide-react"
 import React from "react"
+import { getFrontendUrl } from "@/lib/utils"
 
 
 export function TestChatCard() {
@@ -29,7 +30,7 @@ export function TestChatCard() {
           Test the chat functionality of the course, exactly as a student sees it.
         </CardDescription>
         <CardAction>
-          <Button variant="ghost" onClick={() => {window.open(`http://localhost:3000/chat/${courseId}`);}}><ExternalLink/></Button>
+          <Button variant="ghost" onClick={() => {window.open(`${getFrontendUrl()}/chat/${courseId}`);}}><ExternalLink/></Button>
         </CardAction>
       </CardHeader>
     </Card>

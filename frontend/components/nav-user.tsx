@@ -35,6 +35,7 @@ import {
 
 import { supabase, getAccessToken } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { getApiUrl } from "@/lib/utils"
 
 
 export function NavUser({
@@ -62,7 +63,7 @@ export function NavUser({
     async function checkAdminRole() {
       try {
         const token = await getAccessToken()
-        const res = await fetch("http://localhost:8000/users/role", {
+        const res = await fetch(`${getApiUrl()}/users/role`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,

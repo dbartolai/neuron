@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { getAccessToken } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 export interface InsightsStatus {
     total_threads: number
@@ -44,7 +45,7 @@ export function useInsights(courseId: string, limit?: number): UseInsightsRespon
         try {
             const token = await getAccessToken()
             const res = await fetch(
-                `http://localhost:8000/instructor/courses/${courseId}/insights/status`,
+                `${getApiUrl()}/instructor/courses/${courseId}/insights/status`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -70,8 +71,8 @@ export function useInsights(courseId: string, limit?: number): UseInsightsRespon
         try {
             const token = await getAccessToken()
             const url = limit
-                ? `http://localhost:8000/instructor/courses/${courseId}/insights/tags?limit=${limit}`
-                : `http://localhost:8000/instructor/courses/${courseId}/insights/tags`
+                ? `${getApiUrl()}/instructor/courses/${courseId}/insights/tags?limit=${limit}`
+                : `${getApiUrl()}/instructor/courses/${courseId}/insights/tags`
             
             const res = await fetch(url, {
                 headers: {
@@ -99,7 +100,7 @@ export function useInsights(courseId: string, limit?: number): UseInsightsRespon
         try {
             const token = await getAccessToken()
             const res = await fetch(
-                `http://localhost:8000/instructor/courses/${courseId}/insights/unlock`,
+                `${getApiUrl()}/instructor/courses/${courseId}/insights/unlock`,
                 {
                     method: "POST",
                     headers: {
@@ -133,7 +134,7 @@ export function useInsights(courseId: string, limit?: number): UseInsightsRespon
         try {
             const token = await getAccessToken()
             const res = await fetch(
-                `http://localhost:8000/instructor/courses/${courseId}/insights/tags`,
+                `${getApiUrl()}/instructor/courses/${courseId}/insights/tags`,
                 {
                     method: "PATCH",
                     headers: {
@@ -168,7 +169,7 @@ export function useInsights(courseId: string, limit?: number): UseInsightsRespon
         try {
             const token = await getAccessToken()
             const res = await fetch(
-                `http://localhost:8000/instructor/courses/${courseId}/insights/threads/${threadId}/tag`,
+                `${getApiUrl()}/instructor/courses/${courseId}/insights/threads/${threadId}/tag`,
                 {
                     method: "PATCH",
                     headers: {

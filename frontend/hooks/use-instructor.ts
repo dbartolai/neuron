@@ -3,6 +3,7 @@
 import * as React from "react"
 import { getAccessToken, supabase } from "@/lib/supabase/client"
 import { LucideIcon, SquareTerminal } from "lucide-react"
+import { getApiUrl } from "@/lib/utils"
 
 
 
@@ -80,7 +81,7 @@ export function useInstructor() : Sidebar {
             
             const token = await getAccessToken();
 
-            const res = await fetch ("http://localhost:8000/instructor/courses", {
+            const res = await fetch (`${getApiUrl()}/instructor/courses`, {
                 method: "GET",
                 headers: {
                     Authorization: `Bearer ${token}`
@@ -95,7 +96,7 @@ export function useInstructor() : Sidebar {
 
             // find user data
             const { data: {user}} = await supabase.auth.getUser();
-            const name_res = await fetch ("http://localhost:8000/users/name", {
+            const name_res = await fetch (`${getApiUrl()}/users/name`, {
                 method: "GET",
                 headers: {
                     Authorization: `Bearer ${token}`

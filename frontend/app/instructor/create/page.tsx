@@ -17,6 +17,7 @@ import {H1, H3, Muted, Ul} from "@/components/primitives/index"
 import { WRITING_LEVELS, TESTING_LEVEL, DEBUGGING_LEVELS } from "@/lib/levels"
 import { useRouter } from "next/navigation"
 import { getAccessToken } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 
 export default function CreateCourse() {
@@ -72,7 +73,7 @@ export default function CreateCourse() {
 
         const token = await getAccessToken();
 
-        const res = await fetch("http://localhost:8000/instructor/courses", {
+        const res = await fetch(`${getApiUrl()}/instructor/courses`, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${token}`,

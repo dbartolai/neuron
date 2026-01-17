@@ -1,6 +1,6 @@
 "use client"
 
-import { cn } from "@/lib/utils"
+import { cn, getFrontendUrl } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -41,7 +41,7 @@ export default function Page({}: React.ComponentProps<"div">) {
     console.log("signup data:", data)
     console.log("signup error:", error)
 
-    router.push("http://localhost:3000/");
+    router.push(`${getFrontendUrl()}/`);
   }
 
   const magicLink = async () => {

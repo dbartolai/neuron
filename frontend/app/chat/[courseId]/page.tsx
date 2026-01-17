@@ -21,6 +21,7 @@ import { useParams } from "next/navigation"
 import { getAccessToken } from "@/lib/supabase/client"
 import { ChatRole, ChatMessage, useChat } from "@/hooks/use-chat"
 import { H1, Muted } from "@/components/primitives"
+import { getApiUrl } from "@/lib/utils"
 
 type ThreadType = "writing" | "testing" | "debugging"
 
@@ -118,7 +119,7 @@ export default function CoursePage() {
     try {
       const token = await getAccessToken();
 
-      const res = await fetch(`http://localhost:8000/courses/${courseId}/thread/stream`, {
+      const res = await fetch(`${getApiUrl()}/courses/${courseId}/thread/stream`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

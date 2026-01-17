@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { getAccessToken } from "@/lib/supabase/client"
 import { H1, Muted } from "@/components/primitives"
+import { getApiUrl } from "@/lib/utils"
 import {
   Card,
   CardContent,
@@ -55,7 +56,7 @@ export default function StudentDetailPage() {
       try {
         const token = await getAccessToken()
         const res = await fetch(
-          `http://localhost:8000/instructor/courses/${courseId}/enrollment`,
+          `${getApiUrl()}/instructor/courses/${courseId}/enrollment`,
           {
             method: "GET",
             headers: {

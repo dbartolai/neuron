@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 
 import { useActivate } from "@/hooks/use-activate"
 import { useSearchParams } from "next/navigation"
+import { getApiUrl } from "@/lib/utils"
 
 
 enum TokenStatus {
@@ -65,7 +66,7 @@ export default function Activate() {
 
         console.log("signing up", { name, email })
 
-        const res =  await fetch("http://localhost:8000/invites/activate", {
+        const res =  await fetch(`${getApiUrl()}/invites/activate`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"

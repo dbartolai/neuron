@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { type LucideIcon } from "lucide-react"
 
 import { getAccessToken } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 
 type Item = {
@@ -41,7 +42,7 @@ export default function CourseEnroll({ item }: CourseEnrollProps) {
 
         const code = codeInput;
 
-        const res = await fetch("http://localhost:8000/student/enroll", {
+        const res = await fetch(`${getApiUrl()}/student/enroll`, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${token}`,
