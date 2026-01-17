@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { getAccessToken } from "@/lib/supabase/client"
@@ -29,7 +29,7 @@ interface Student {
   enrolled_at: string
 }
 
-export default function StudentDetailPage() {
+function StudentDetailPageContent() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -196,5 +196,41 @@ export default function StudentDetailPage() {
         )}
       </div>
     </>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <>
+      <header className="flex h-16 shrink-0 items-center gap-2">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+        </div>
+      </header>
+      <div className="flex min-h-0 flex-col gap-4 p-4 pt-0 mb-8 overflow-x-hidden">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" disabled>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <Skeleton className="h-8 w-48" />
+          </div>
+        </div>
+      </div>
+      <div className="p-4 pt-0 space-y-6">
+        <div className="space-y-4">
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default function StudentDetailPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <StudentDetailPageContent />
+    </Suspense>
   )
 }

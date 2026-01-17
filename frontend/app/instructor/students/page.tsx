@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { getAccessToken } from "@/lib/supabase/client"
@@ -23,7 +23,7 @@ interface Student {
   enrolled_at: string
 }
 
-export default function StudentsPage() {
+function StudentsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const courseId = searchParams.get("courseId")
@@ -150,5 +150,36 @@ export default function StudentsPage() {
         )}
       </div>
     </>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <>
+      <header className="flex h-16 shrink-0 items-center gap-2">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+        </div>
+      </header>
+      <div className="flex min-h-0 flex-col gap-4 p-4 pt-0 mb-8 overflow-x-hidden">
+        <H1 text="Students" />
+        <Muted text="View and manage all enrolled students" />
+      </div>
+      <div className="p-4 pt-0">
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default function StudentsPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <StudentsPageContent />
+    </Suspense>
   )
 }
