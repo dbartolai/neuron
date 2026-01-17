@@ -136,12 +136,16 @@ class ChatService:
             kwargs["tool_resources"] = {"file_search": {"vector_store_ids": [vector_store_id]}}
 
         # Stream the response - yields events as they arrive
-        response_stream = client.responses.create(**kwargs)
-        
-        for event in response_stream:
-            # Handle text delta events from the streaming response
-            if event.type == "response.output_text.delta":
-                yield event.delta
+        try:
+            response_stream = client.responses.create(**kwargs)
+            
+            for event in response_stream:
+                # Handle text delta events from the streaming response
+                if event.type == "response.output_text.delta":
+                    yield event.delta
+        except Exception as e:
+            # Re-raise to be handled by the router
+            raise Exception(f"OpenAI API error: {str(e)}") from e
 
     # ------------ Stage 3: Response Rules Check ------------
     @staticmethod

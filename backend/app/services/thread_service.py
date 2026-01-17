@@ -113,6 +113,74 @@ class ThreadService:
         if name is None:
             raise HTTPException(status_code=404, detail="thread not found")
         return name
+    
+    @staticmethod
+    async def get_total_thread_count_by_course(db: asyncpg.Connection, course_id: UUID) -> int:
+        """Count all threads across all students for a course."""
+        query = """
+            SELECT COUNT(*) 
+            FROM threads
+            WHERE course_id = $1
+        """
+        count: int = await db.fetchval(query, course_id)
+        return count
+    
+    @staticmethod
+    async def get_all_threads_by_course(db: asyncpg.Connection, course_id: UUID) -> List[dict]:
+        """Get all threads (across all students) for a course."""
+        query = """
+            SELECT id, title, thread_tag, user_id, updated_at
+            FROM threads
+            WHERE course_id = $1
+            ORDER BY updated_at DESC
+        """
+        rows = await db.fetch(query, course_id)
+        return [dict(row) for row in rows]
+    
+    @staticmethod
+    async def get_threads_with_messages(db: asyncpg.Connection, course_id: UUID) -> List[dict]:
+        """Get threads with their first student message for AI analysis."""
+        query = """
+            SELECT 
+                t.id,
+                t.title,
+                t.thread_type,
+                (
+                    SELECT message 
+                    FROM chat_logs 
+                    WHERE thread_id = t.id 
+                    AND role = 'student' 
+                    ORDER BY created_at ASC 
+                    LIMIT 1
+                ) as first_message
+            FROM threads t
+            WHERE t.course_id = $1
+            ORDER BY t.updated_at DESC
+        """
+        rows = await db.fetch(query, course_id)
+        return [dict(row) for row in rows]
+    
+    @staticmethod
+    async def update_thread_tag(db: asyncpg.Connection, thread_id: UUID, tag: str) -> None:
+        """Update a thread's tag."""
+        query = """
+            UPDATE threads
+            SET thread_tag = $2
+            WHERE id = $1
+        """
+        await db.execute(query, thread_id, tag)
+    
+    @staticmethod
+    async def get_threads_by_tag(db: asyncpg.Connection, course_id: UUID, tag: str) -> List[dict]:
+        """Get threads filtered by tag."""
+        query = """
+            SELECT id, title, thread_tag, user_id, updated_at
+            FROM threads
+            WHERE course_id = $1 AND thread_tag = $2
+            ORDER BY updated_at DESC
+        """
+        rows = await db.fetch(query, course_id, tag)
+        return [dict(row) for row in rows]
 
 
 

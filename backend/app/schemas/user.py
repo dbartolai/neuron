@@ -14,6 +14,10 @@ class User(BaseModel):
     role: ProfileRole
     name: str
 
+class EnrollmentResponse(BaseModel):
+    id: UUID
+    name: UUID
+
 class Student(BaseModel):
     id: UUID
     name: str

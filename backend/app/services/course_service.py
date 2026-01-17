@@ -7,7 +7,7 @@ from typing import List
 from app.schemas.course import UserCourse, NewCourse, CoursePolicy, PatchCourse, CourseFile, CourseFileRequest
 from app.services.user_service import UserService
 from uuid import UUID
-from app.schemas.user import Student
+from app.schemas.user import Student, EnrollmentResponse
 from fastapi import HTTPException
 
 class CourseService:
@@ -205,9 +205,12 @@ class CourseService:
         query = """
             SELECT
                 e.student_id,
-                p.name
+                p.name,
+                COALESCE(au.email, '') as email,
+                e.created_at as enrolled_at
             FROM enrollment e
             JOIN profiles p ON p.id = e.student_id
+            LEFT JOIN auth.users au ON au.id = e.student_id
             WHERE e.course_id = $1
             ORDER BY e.created_at DESC
             LIMIT 5
@@ -216,7 +219,12 @@ class CourseService:
         rows = await db.fetch(query, course_id)
 
         return [
-            Student(id=row["student_id"], name=row["name"])
+            Student(
+                id=row["student_id"], 
+                name=row["name"],
+                email=row["email"] if row["email"] else "",
+                enrolled_at=row["enrolled_at"]
+            )
             for row in rows
         ]
 
@@ -302,3 +310,24 @@ class CourseService:
         """
 
         await db.execute(query, file_id)
+    
+    @staticmethod
+    async def get_thread_tags(db: asyncpg.Connection, course_id: UUID) -> List[str] | None:
+        """Get the thread_tags array from courses table."""
+        query = """
+            SELECT thread_tags
+            FROM courses
+            WHERE id = $1
+        """
+        tags = await db.fetchval(query, course_id)
+        return tags if tags else None
+    
+    @staticmethod
+    async def set_thread_tags(db: asyncpg.Connection, course_id: UUID, tags: List[str]) -> None:
+        """Update thread_tags array."""
+        query = """
+            UPDATE courses
+            SET thread_tags = $2
+            WHERE id = $1
+        """
+        await db.execute(query, course_id, tags)

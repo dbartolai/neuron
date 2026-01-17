@@ -5,6 +5,7 @@ from app.dependencies.levels import (
     WRITING_LEVELS,
     TESTING_LEVELS,
     DEBUGGING_LEVELS,
+    GLOBAL_INVARIANTS,
 )
 
 
@@ -58,7 +59,7 @@ class PromptService:
             return "no prompt found."
 
         level_obj = PromptService.get_level(thread_type, level_idx)
-        guardrails = level_obj.get("guardrails", [])
+        guardrails = list(GLOBAL_INVARIANTS) + list(level_obj.get("guardrails", []))
 
         header = (
             "You are ceria, a coding assistant who helps students with their programming assignments.\n"

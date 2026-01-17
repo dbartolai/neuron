@@ -16,6 +16,7 @@ import asyncpg
 import json
 from app.schemas.thread import ThreadType
 from app.services.prompt_service import PromptService
+from app.dependencies.levels import GLOBAL_INVARIANTS
 
 
 router = APIRouter(tags=["chat"])
@@ -82,26 +83,26 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
     ]
 
     # Decide whether to enable file_search for this turn
+    # File exploration is available at all levels when explicitly requested
     requires_file_search: bool = bool(details.get("requires_file_search", False))
 
-    # ALWAYS ALLOW FILE SEARCH
-    allow_file_search: bool = True
-
     vector_store_id: str | None = None
-    if requires_file_search and allow_file_search:
+    if requires_file_search:
         from app.services.course_service import CourseService  # local import to avoid cycles
         vector_store_id = await CourseService.get_vector_store(db, course_id)
 
-    # Augment guardrails and response rules if file_search is available
-    guardrails = list(level.get("guardrails", []))
+    # Build guardrails with global invariants prepended
+    guardrails = list(GLOBAL_INVARIANTS) + list(level.get("guardrails", []))
     response_rules = list(level.get("response_rules", []))
+    
+    # Augment guardrails and response rules if file_search is available
     if vector_store_id:
         guardrails += [
-            "5. Use the file_search tool only when necessary to retrieve exact details from course files.",
-            "6. When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
+            "Use the file_search tool only when necessary to retrieve exact details from course files.",
+            "When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
         ]
         response_rules += [
-            "99. If file_search was used, include citations with filename and a minimal quoted snippet.",
+            "If file_search was used, include citations with filename and a minimal quoted snippet.",
         ]
 
     assistant_output: str = await ChatService.chat_with_guardrails(messages, guardrails, vector_store_id=vector_store_id)
@@ -225,30 +226,40 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
             ]
 
             # Decide whether to enable file_search for this turn
+            # File exploration is available at all levels when explicitly requested
             requires_file_search: bool = bool(details.get("requires_file_search", False))
-            allow_file_search: bool = True
 
             vector_store_id: str | None = None
-            if requires_file_search and allow_file_search:
+            if requires_file_search:
                 from app.services.course_service import CourseService
                 vector_store_id = await CourseService.get_vector_store(db_conn, course_id)
 
+            # Build guardrails with global invariants prepended
+            guardrails = list(GLOBAL_INVARIANTS) + list(level.get("guardrails", []))
+            
             # Augment guardrails if file_search is available
-            guardrails = list(level.get("guardrails", []))
             if vector_store_id:
                 guardrails += [
-                    "5. Use the file_search tool only when necessary to retrieve exact details from course files.",
-                    "6. When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
+                    "Use the file_search tool only when necessary to retrieve exact details from course files.",
+                    "When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
                 ]
 
             # Stream the response
             full_response = ""
-            async for token in ChatService.chat_with_guardrails_stream(messages, guardrails, vector_store_id=vector_store_id):
-                full_response += token
-                yield f"event: token\ndata: {json.dumps({'content': token})}\n\n"
+            try:
+                async for token in ChatService.chat_with_guardrails_stream(messages, guardrails, vector_store_id=vector_store_id):
+                    full_response += token
+                    yield f"event: token\ndata: {json.dumps({'content': token})}\n\n"
 
-            # Save the complete message to the database
-            await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, full_response)
+                # Save the complete message to the database
+                await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, full_response)
+            except Exception as e:
+                # Log the error and send an error event to the client
+                error_msg = f"An error occurred while processing your request. Please try again or contact support if the issue persists."
+                await LogService.insert_message(db_conn, thread_id, ChatRole.system, error_msg)
+                yield f"event: error\ndata: {json.dumps({'message': error_msg})}\n\n"
+                # Log the actual error for debugging (you might want to use a proper logger)
+                print(f"Error in chat stream: {str(e)}")
         
         yield f"event: done\ndata: {json.dumps({})}\n\n"
 
