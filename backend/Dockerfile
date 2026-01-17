@@ -4,7 +4,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY pyproject.toml .
+COPY requirements.txt .
 
 RUN pip install "fastapi[standard]" "uvicorn[standard]" pydantic
 
