@@ -35,7 +35,7 @@ export default function AssistantMessage({ content, isStreaming = false }: Assis
           components={{
             // Override the <pre> tag to style the code block container
             pre: ({ node, ...props }) => (
-              <div className="overflow-auto w-full my-2 bg-card rounded-lg p-4 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
+              <div className="overflow-auto w-full my-2 bg-card rounded-lg p-4 border border-border/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),inset_0_2px_4px_rgba(0,0,0,0.04)]">
                 <pre {...props} />
               </div>
             ),
