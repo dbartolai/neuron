@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # your Next dev server
+    allow_origins=["http://localhost:3000", "https://neuron.ceria.io"],  # your Next dev server
     allow_credentials=True,
     allow_methods=["*"],                      # or ["GET","POST",...]
     allow_headers=["*"],
