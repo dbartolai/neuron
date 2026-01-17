@@ -26,7 +26,7 @@ export default function MessageLog( {messages, isStreaming = false, streamingCon
     }, [messages, streamingContent, isStreaming]);
 
     return (
-        <>
+        <div className="chat-scroll">
         {messages.map((message: ChatMessage, index: number) => {
             
             if (message.role === ChatRole.STUDENT){
@@ -68,7 +68,7 @@ export default function MessageLog( {messages, isStreaming = false, streamingCon
         
         {/* Scroll anchor */}
         <div ref={bottomRef} />
-        </>
+        </div>
         
     )
 
