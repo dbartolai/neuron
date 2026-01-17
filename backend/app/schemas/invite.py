@@ -13,14 +13,15 @@ class InviteStatus(str, Enum):
 
 class Invite(BaseModel):
     id: UUID
+    name: str
     email: str
     token_hash: str
     created_by: UUID
     created_at: datetime
     expires_at: datetime
-    revoked_at: datetime
-    accepted_at: datetime
-    accepted_by: UUID
+    revoked_at: Optional[datetime]
+    accepted_at: Optional[datetime]
+    accepted_by: Optional[UUID]
     note: str
 
 class InviteRequest(BaseModel):

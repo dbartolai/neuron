@@ -4,7 +4,7 @@ from app.dependencies.auth import me, require_admin
 from app.schemas.user import User
 from uuid import UUID
 from typing import List, Optional
-from app.schemas.invite import InviteRequest
+from app.schemas.invite import InviteRequest, Invite
 import secrets, hashlib
 from app.services.invite_service import InviteService
 from app.services.resend_service import ResendService
@@ -12,6 +12,12 @@ from app.services.resend_service import ResendService
 
 
 router = APIRouter(tags=["admin"])
+
+
+@router.get(path="/invites")
+async def get_invites(db = Depends(get_db), user: User = Depends(require_admin)) -> List[Invite]:
+    invites = await InviteService.get_all_invites(db)
+    return invites
 
 
 @router.post(path="/invites")

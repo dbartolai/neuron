@@ -69,18 +69,6 @@ class InviteService:
         
         return True
      
-
-    @staticmethod
-    async def is_token_claimed(db: asyncpg.Connection, token: str) -> bool:
-
-        query = """
-            SELECT claimed_at
-            FROM instructor_invites
-            WHERE token_hash = $1
-        """
-
-        val: datetime|None = await db.fetchval(query, token)
-        return (val is None)
     
     @staticmethod
     async def get_token_status(db: asyncpg.Connection, token: str) -> InviteStatus|None:
@@ -155,6 +143,33 @@ class InviteService:
 
         return email
 
+    @staticmethod
+    async def get_all_invites(db: asyncpg.Connection) -> List[Invite]:
+
+        query = """
+            SELECT id, name, email, token_hash, created_by, created_at, expires_at, revoked_at, accepted_at, accepted_by, note
+            FROM instructor_invites
+            ORDER BY created_at DESC
+        """
+
+        rows = await db.fetch(query)
+
+        return [
+            Invite(
+                id=row["id"],
+                name=row["name"],
+                email=row["email"],
+                token_hash=row["token_hash"],
+                created_by=row["created_by"],
+                created_at=row["created_at"],
+                expires_at=row["expires_at"],
+                revoked_at=row["revoked_at"],
+                accepted_at=row["accepted_at"],
+                accepted_by=row["accepted_by"],
+                note=row["note"]
+            )
+            for row in rows
+        ]
 
     
 
