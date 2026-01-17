@@ -83,9 +83,11 @@ class ChatService:
         ) + _format_rules("Guardrails:", guardrails)
 
         # Flatten provided messages to a single input string (responses.create)
+        # Skip system messages so rule violations don't pollute LLM context
         buf = []
         for m in messages:
-            buf.append(f"{m.role}: {m.content}")
+            if m.role != "system":
+                buf.append(f"{m.role}: {m.content}")
         convo = "\n".join(buf)
 
         kwargs = {
@@ -117,9 +119,11 @@ class ChatService:
         ) + _format_rules("Guardrails:", guardrails)
 
         # Flatten provided messages to a single input string (responses.create)
+        # Skip system messages so rule violations don't pollute LLM context
         buf = []
         for m in messages:
-            buf.append(f"{m.role}: {m.content}")
+            if m.role != "system":
+                buf.append(f"{m.role}: {m.content}")
         convo = "\n".join(buf)
 
         kwargs = {

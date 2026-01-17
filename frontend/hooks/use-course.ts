@@ -3,12 +3,20 @@
 import { useState, useEffect } from "react"
 import { getAccessToken } from "@/lib/supabase/client"
 
-
+export interface CoursePolicy {
+    name: string;
+    code: string;
+    writing_level: number;
+    testing_level: number;
+    debugging_level: number;
+}
 
 export interface useCourseResponse {
     courseName: string
     courseError: string | null
     courseLoading: boolean
+    policy: CoursePolicy | null
+    policyLoading: boolean
 }
 
 
@@ -17,11 +25,14 @@ export function useCourse(courseId: string): useCourseResponse {
     const [courseName, setCourseName] = useState<string>("");
     const [courseError, setCourseError] = useState<string | null>(null);
     const [courseLoading, setCourseLoading] = useState(false);
+    const [policy, setPolicy] = useState<CoursePolicy | null>(null);
+    const [policyLoading, setPolicyLoading] = useState(false);
 
     useEffect(() => {
 
         setCourseError(null);
         setCourseName("");
+        setPolicy(null);
 
         if (!courseId) return;
 
@@ -29,9 +40,12 @@ export function useCourse(courseId: string): useCourseResponse {
 
         (async () => {
             setCourseLoading(true);
+            setPolicyLoading(true);
 
             try {
                 const token = await getAccessToken();
+                
+                // Fetch course name
                 const courseRes = await fetch (`http://localhost:8000/courses/${courseId}/name`, {
                     method: "GET",
                     headers: {
@@ -44,13 +58,32 @@ export function useCourse(courseId: string): useCourseResponse {
                     throw new Error("course name fetch failed");
                 }
 
-                const data: string = await courseRes.json();
-                setCourseName(data);
+                const nameData: string = await courseRes.json();
+                setCourseName(nameData);
+
+                // Fetch course policy
+                const policyRes = await fetch(`http://localhost:8000/courses/${courseId}/policy`, {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    signal: controller.signal,
+                });
+
+                if (!policyRes.ok) {
+                    throw new Error("course policy fetch failed");
+                }
+
+                const policyData: CoursePolicy = await policyRes.json();
+                setPolicy(policyData);
             } catch (e: any) {
                 if (e?.name === 'AbortError') return;
                 setCourseError(e.message || "unknown error");
             } finally {
-                if (!controller.signal.aborted) setCourseLoading(false);
+                if (!controller.signal.aborted) {
+                    setCourseLoading(false);
+                    setPolicyLoading(false);
+                }
             }
         })();
         
@@ -61,6 +94,8 @@ export function useCourse(courseId: string): useCourseResponse {
     return {
         courseName,
         courseError,
-        courseLoading
+        courseLoading,
+        policy,
+        policyLoading
     }
 }

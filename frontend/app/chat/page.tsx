@@ -18,33 +18,6 @@ export default function Page() {
 
   console.log("Courses:", courses);
 
-  const sendInvite = async () => {
-    console.log("inviting")
-
-    const token = await getAccessToken();
-
-    const res = await fetch("http://localhost:8000/admin/invites", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type" : "application/json"
-      },
-      body: JSON.stringify({
-        email: "dbartolai71605@icloud.com",
-        name: "Michael Jordan",
-        note: "sending to self"
-        // password = InstructorPassword
-      })
-    })
-
-    if (!res.ok){
-      throw new Error("couldn't send email");
-    }
-
-    const data = await res.json();
-
-    console.log("DATA:", data);
-  }
   
   return (
     <>
@@ -61,7 +34,6 @@ export default function Page() {
         {courses.map( c => (
           <CourseSelect key={c.id} name={c.title} url={c.url} icon={c.icon}/>
         ))}
-        <Button onClick={sendInvite}>Send Invite!</Button>
       </div>
     </div>  ):(
       <EmptyDashboard/>

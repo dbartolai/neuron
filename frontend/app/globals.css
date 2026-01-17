@@ -46,7 +46,7 @@
 :root {
   --radius: 0.625rem;
 
-  /* Warm parchment / beige system (Claude-like) */
+  /* Warm parchment / beige system  */
   --background: oklch(0.985 0.012 85);          /* warm off-white */
   --foreground: oklch(0.205 0.020 70);          /* warm charcoal */
 

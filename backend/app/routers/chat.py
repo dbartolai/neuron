@@ -70,9 +70,9 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
             f"Your prompt did not pass the current course rules. Please revise and try again.\n"
             f"Violations: {reasons}"
         )
-        # Log and return system guidance (as assistant so the UI shows it)
-        await LogService.insert_message(db, thread_id, ChatRole.assistant, system_msg)
-        return ChatResponse(role=ChatRole.assistant, content=system_msg)
+        # Log and return system guidance (as system so it doesn't pollute LLM context)
+        await LogService.insert_message(db, thread_id, ChatRole.system, system_msg)
+        return ChatResponse(role=ChatRole.system, content=system_msg)
 
     # 2) Stage 2 — Chat with guardrails
     prior_logs: List[MessageLog] = await LogService.get_messages_from_thread(db, thread_id)
@@ -125,8 +125,8 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
                 "I couldn't produce a response that met the course guardrails. "
                 "Please rephrase your request with more clarity or contact your instructor to adjust prompts."
             )
-            await LogService.insert_message(db, thread_id, ChatRole.assistant, fail_msg)
-            return ChatResponse(role=ChatRole.assistant, content=fail_msg)
+            await LogService.insert_message(db, thread_id, ChatRole.system, fail_msg)
+            return ChatResponse(role=ChatRole.system, content=fail_msg)
 
     # success on first attempt
     await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output)
@@ -212,7 +212,7 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                     f"Your prompt did not pass the current course rules. Please revise and try again.\n"
                     f"Violations: {reasons}"
                 )
-                await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, system_msg)
+                await LogService.insert_message(db_conn, thread_id, ChatRole.system, system_msg)
                 yield f"event: error\ndata: {json.dumps({'message': system_msg})}\n\n"
                 yield f"event: done\ndata: {json.dumps({})}\n\n"
                 return

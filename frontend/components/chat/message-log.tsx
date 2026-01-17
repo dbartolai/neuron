@@ -6,6 +6,7 @@ import { ChatMessage } from "@/hooks/use-chat"
 import {ChatRole} from "@/hooks/use-chat"
 import UserMessage from "@/components/chat/user-message"
 import AssistantMessage, { ThinkingIndicator } from "./assistant-message"
+import SystemMessage from "./system-message"
 
 type MessageLogProps = {
     messages: ChatMessage[]
@@ -38,6 +39,13 @@ export default function MessageLog( {messages, isStreaming = false, streamingCon
             } else if (message.role === ChatRole.ASSISTANT) {
                 return (
                     <AssistantMessage
+                        content={message.content}
+                        key={index}
+                    />
+                )
+            } else if (message.role === ChatRole.SYSTEM) {
+                return (
+                    <SystemMessage
                         content={message.content}
                         key={index}
                     />

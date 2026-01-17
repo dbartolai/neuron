@@ -69,6 +69,9 @@ export function useChat(thread_id : string) : UseChatResponse {
     const tokenQueueRef = useRef<string[]>([]);
     const drainIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const fullContentRef = useRef<string>("");
+    
+    // Track if the current response is an error (rule violation)
+    const isErrorResponseRef = useRef<boolean>(false);
 
     // Start draining the token queue at a fixed interval
     const startDraining = useCallback(() => {
@@ -213,6 +216,7 @@ export function useChat(thread_id : string) : UseChatResponse {
             // Reset token queue for new stream
             tokenQueueRef.current = [];
             fullContentRef.current = "";
+            isErrorResponseRef.current = false;
             startDraining();
 
             // Create abort controller for this request
@@ -274,6 +278,8 @@ export function useChat(thread_id : string) : UseChatResponse {
                         } else if (event.event === 'error') {
                             try {
                                 const data = JSON.parse(event.data);
+                                // Mark as error response (rule violation)
+                                isErrorResponseRef.current = true;
                                 // Split error message into words for smooth animation
                                 const words = data.message.split(' ');
                                 for (let i = 0; i < words.length; i++) {
@@ -312,11 +318,13 @@ export function useChat(thread_id : string) : UseChatResponse {
                 stopDraining();
 
                 // Move streaming content to messages
+                // Use SYSTEM role for error responses (rule violations)
                 if (fullContentRef.current) {
+                    const messageRole = isErrorResponseRef.current ? ChatRole.SYSTEM : ChatRole.ASSISTANT;
                     setMessages((prev) => [
                         ...prev,
                         {
-                            role: ChatRole.ASSISTANT,
+                            role: messageRole,
                             content: fullContentRef.current
                         }
                     ]);

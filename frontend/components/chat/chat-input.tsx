@@ -29,9 +29,9 @@ type ChatInputProps = {
 export default function ChatInput({value, onChange, onSend}: ChatInputProps){
     return (
         <>
-        <InputGroup>
+        <InputGroup className="rounded-3xl w-full px-2 h-min">
         <InputGroupTextarea 
-            placeholder="Ask, Search or Chat..." 
+            placeholder="Ask ceria anything..." 
             value = {value} 
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={(e) => {
@@ -42,8 +42,8 @@ export default function ChatInput({value, onChange, onSend}: ChatInputProps){
             }
             }}
         />
-        <InputGroupAddon align="block-end">
-          <InputGroupButton
+        <InputGroupAddon align="inline-end">
+          {/* <InputGroupButton
             variant="outline"
             className="rounded-full"
             size="icon-xs"
@@ -63,13 +63,11 @@ export default function ChatInput({value, onChange, onSend}: ChatInputProps){
               <DropdownMenuItem>Agent</DropdownMenuItem>
               <DropdownMenuItem>Manual</DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
-          <InputGroupText className="ml-auto">52% used</InputGroupText>
-          <Separator orientation="vertical" className="h-4!" />
+          </DropdownMenu> */}
           <InputGroupButton
             variant="default"
-            className="rounded-full"
-            size="icon-xs"
+            className="rounded-full ml-auto"
+            size="icon-sm"
             onClick={() => {
                 onChange("")
                 onSend(value)

@@ -15,10 +15,13 @@ import {
 } from "@/components/ui/sidebar"
 import ChatInput from "@/components/chat/chat-input"
 import MessageLog from "@/components/chat/message-log"
+import ChatWelcome from "@/components/chat/chat-welcome"
 import {useCourse} from "@/hooks/use-course"
 import { useParams } from "next/navigation"
 import { getAccessToken } from "@/lib/supabase/client"
 import { ChatRole, ChatMessage, useChat } from "@/hooks/use-chat"
+
+type ThreadType = "writing" | "testing" | "debugging"
 
 // Helper function to parse SSE events from a chunk of text
 function parseSSEEvents(chunk: string): Array<{event: string, data: string}> {
@@ -49,12 +52,13 @@ export default function CoursePage() {
     courseId: string;
   }>();
 
-  const {courseName} = useCourse(courseId);
+  const {courseName, policy, courseLoading, policyLoading} = useCourse(courseId);
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [mode, setMode] = useState<ThreadType>("writing");
   const abortControllerRef = useRef<AbortController | null>(null);
   
   // Track the active thread ID after first message exchange
@@ -121,6 +125,7 @@ export default function CoursePage() {
         },
         body: JSON.stringify({
           first_message: messageContent,
+          thread_type: mode,
         }),
         signal: controller.signal,
       });
@@ -252,6 +257,9 @@ export default function CoursePage() {
     ? chat.threadName 
     : "New Chat";
 
+  // Show welcome screen when no messages and not creating
+  const showWelcome = localMessages.length === 0 && !activeThreadId && !isCreating;
+
   return (
         <>
         <header className="flex h-16 shrink-0 items-center gap-2">
@@ -278,11 +286,22 @@ export default function CoursePage() {
         </header>
         <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 pt-0 overflow-x-hidden">
           <div className="flex w-full max-w-3xl mx-auto flex-1 min-h-0 flex-col gap-4 overflow-y-auto overscroll-none">
-            <MessageLog 
-              messages={displayMessages}
-              isStreaming={showStreaming}
-              streamingContent={displayStreamingContent}
-            />
+            {showWelcome ? (
+              <ChatWelcome 
+                courseName={courseName}
+                policy={policy}
+                selectedMode={mode}
+                onModeChange={setMode}
+                courseLoading={courseLoading}
+                policyLoading={policyLoading}
+              />
+            ) : (
+              <MessageLog 
+                messages={displayMessages}
+                isStreaming={showStreaming}
+                streamingContent={displayStreamingContent}
+              />
+            )}
           </div>
           <div className="w-full max-w-3xl mx-auto bg-background sticky bottom-0 z-10">
             <ChatInput 
