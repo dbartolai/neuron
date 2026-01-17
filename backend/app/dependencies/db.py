@@ -8,13 +8,16 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-
 pool: asyncpg.pool.Pool | None = None
 
 async def init_pool():
     """Called inside lifespan to initialize the global pool."""
     global pool
-    pool = await asyncpg.create_pool(DATABASE_URL)
+    # The fix is added here: statement_cache_size=0
+    pool = await asyncpg.create_pool(
+        DATABASE_URL, 
+        statement_cache_size=0
+    )
     print("Database pool initialized.")
 
 async def close_pool():
@@ -26,5 +29,7 @@ async def close_pool():
 
 async def get_db():
     """FastAPI dependency for acquiring a connection."""
+    if pool is None:
+        raise RuntimeError("Database pool is not initialized")
     async with pool.acquire() as conn:
         yield conn
