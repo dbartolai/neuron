@@ -24,7 +24,7 @@ class ResendService:
     @staticmethod
     def send_invite_to_email(token: str, recipient: str):
 
-        token_url = f"http://localhost:3000/instructor/activate?token={token}"
+        token_url = f"http://neuron.ceria.io/instructor/activate?token={token}"
 
         body = f"""
             <!DOCTYPE html>
