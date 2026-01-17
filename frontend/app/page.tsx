@@ -313,12 +313,12 @@ export default function NeuronLandingPage() {
                 <PersonCard
                   name="Drake Bartolai"
                   meta="Computer Engineering, UIUC"
-                  desc="Founder at Ceria. Building Neuron with an instructor-first approach to AI policy and pedagogy."
+                  desc="Technical lead; background in education and technology."
                 />
                 <PersonCard
-                  name="Co-founder"
-                  meta="School • Major"
-                  desc="Brief background: your cofounder's focus (e.g., product, outreach, research, infra)."
+                  name="Charles Economou"
+                  meta="Accountancy, Illinois State University"
+                  desc="Business lead; background in accounting and finance."
                 />
               </div>
             </div>
@@ -326,12 +326,12 @@ export default function NeuronLandingPage() {
             <div className="md:col-span-5 rounded-2xl border border-border bg-card/60 shadow-sm p-6">
               <h3 className="font-medium">Links</h3>
               <div className="mt-4 space-y-2 text-sm">
-                <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="#">
-                  LinkedIn
+                <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="https://www.linkedin.com/in/drake-bartolai/">
+                  Drake Bartolai
                   <span className="block text-xs text-muted-foreground">Add your LinkedIn URL</span>
                 </a>
-                <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="#">
-                  Email
+                <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="https://www.linkedin.com/in/charles-economou/">
+                  Charles Economou
                   <span className="block text-xs text-muted-foreground">hello@ceria… or your preferred contact</span>
                 </a>
               </div>
