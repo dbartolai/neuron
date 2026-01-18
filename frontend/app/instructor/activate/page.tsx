@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 
 import { useActivate } from "@/hooks/use-activate"
 import { useSearchParams } from "next/navigation"
@@ -54,6 +55,7 @@ function ActivateForm() {
     const { status, name, setName, email, error } = useActivate(token);
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -64,29 +66,32 @@ function ActivateForm() {
             return
         }
 
-        console.log("signing up", { name, email })
-
-        const res =  await fetch(`${getApiUrl()}/invites/activate`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                token: token,
-                name: name,
-                password: password
+        setIsLoading(true);
+        try {
+            const res =  await fetch(`${getApiUrl()}/invites/activate`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    token: token,
+                    name: name,
+                    password: password
+                })
             })
-        })
 
-        if (!res.ok) throw new Error("couldn't add instructor");
-        const data = await res.json();
+            if (!res.ok) throw new Error("couldn't add instructor");
+            const data = await res.json();
 
-        console.log("signup error:", error)
+            console.log("signup error:", error)
 
-        if (error == null) {
-            router.push(data.magic_link);
+            if (error == null) {
+                router.push("/chat");
+            }
+        } catch (error) {
+            console.error("Activation error:", error);
+            setIsLoading(false);
         }
-
     }
     
 
@@ -156,9 +161,16 @@ function ActivateForm() {
             <FieldGroup>
               <Field>
                 <Button 
-                  type="submit"  
+                  type="submit"
+                  disabled={isLoading}
+                  className="relative"
                 >
-                  Create Account
+                  {isLoading && (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <Spinner className="size-4" />
+                    </span>
+                  )}
+                  <span className={isLoading ? "invisible" : ""}>Create Account</span>
                 </Button>
                 <Button variant="outline" type="button">
                   Sign up with Google (coming soon)
