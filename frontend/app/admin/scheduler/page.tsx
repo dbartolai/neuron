@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -18,9 +19,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { ArrowUp, ArrowDown, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { AddOutreachDialog } from "@/components/admin/add-outreach-dialog"
+import { ArrowUp, ArrowDown, Calendar, BookOpen } from "lucide-react"
+import { OpenTimeslotsDialog } from "@/components/admin/open-timeslots-dialog"
+import { BookTimeslotDialog } from "@/components/admin/book-timeslot-dialog"
 
 function formatDate(dateString: string | null): string {
   if (!dateString) return "-"
@@ -34,27 +35,30 @@ function formatDate(dateString: string | null): string {
   })
 }
 
-type SortColumn = "name" | "email" | "role" | "created_at"
+type SortColumn = "timeslot" | "name" | "email" | "purpose" | "status"
 type SortDirection = "asc" | "desc"
 
-function sortOutreach(
-  outreach: Array<{
+function sortScheduler(
+  scheduler: Array<{
     id: number;
+    timeslot: string;
     name: string;
     email: string;
-    role: string | null;
-    notes: string | null;
-    created_at: string;
     purpose: string | null;
+    instructor_id: string | null;
   }>,
   column: SortColumn,
   direction: SortDirection
 ) {
-  return [...outreach].sort((a, b) => {
-    let aValue: string | number
-    let bValue: string | number
+  return [...scheduler].sort((a, b) => {
+    let aValue: string | number | boolean
+    let bValue: string | number | boolean
 
     switch (column) {
+      case "timeslot":
+        aValue = new Date(a.timeslot).getTime()
+        bValue = new Date(b.timeslot).getTime()
+        break
       case "name":
         aValue = (a.name || "").toLowerCase()
         bValue = (b.name || "").toLowerCase()
@@ -63,13 +67,13 @@ function sortOutreach(
         aValue = a.email.toLowerCase()
         bValue = b.email.toLowerCase()
         break
-      case "role":
-        aValue = (a.role || "").toLowerCase()
-        bValue = (b.role || "").toLowerCase()
+      case "purpose":
+        aValue = (a.purpose || "").toLowerCase()
+        bValue = (b.purpose || "").toLowerCase()
         break
-      case "created_at":
-        aValue = new Date(a.created_at).getTime()
-        bValue = new Date(b.created_at).getTime()
+      case "status":
+        aValue = a.instructor_id ? 1 : 0
+        bValue = b.instructor_id ? 1 : 0
         break
       default:
         return 0
@@ -85,15 +89,16 @@ function sortOutreach(
   })
 }
 
-export default function AdminOutreachPage() {
-  const { outreach, isLoading, error, refetch } = useAdmin()
-  const [sortColumn, setSortColumn] = React.useState<SortColumn>("created_at")
-  const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc")
-  const [addDialogOpen, setAddDialogOpen] = React.useState(false)
+export default function AdminSchedulerPage() {
+  const { scheduler, isLoading, error, refetch } = useAdmin()
+  const [sortColumn, setSortColumn] = React.useState<SortColumn>("timeslot")
+  const [sortDirection, setSortDirection] = React.useState<SortDirection>("asc")
+  const [openTimeslotsOpen, setOpenTimeslotsOpen] = React.useState(false)
+  const [bookDialogOpen, setBookDialogOpen] = React.useState(false)
 
-  const sortedOutreach = React.useMemo(() => {
-    return sortOutreach(outreach, sortColumn, sortDirection)
-  }, [outreach, sortColumn, sortDirection])
+  const sortedScheduler = React.useMemo(() => {
+    return sortScheduler(scheduler, sortColumn, sortDirection)
+  }, [scheduler, sortColumn, sortDirection])
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -112,28 +117,34 @@ export default function AdminOutreachPage() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Outreach</h1>
+          <h1 className="text-2xl font-semibold">Scheduler</h1>
           <p className="text-muted-foreground text-sm">
-            Log outbound outreach interactions and communications
+            Manage timeslots and bookings
           </p>
         </div>
-        <Button onClick={() => setAddDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Person
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setOpenTimeslotsOpen(true)}>
+            <Calendar className="mr-2 h-4 w-4" />
+            Open Timeslots
+          </Button>
+          <Button onClick={() => setBookDialogOpen(true)} variant="outline">
+            <BookOpen className="mr-2 h-4 w-4" />
+            Book
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Outbound Outreach</CardTitle>
+          <CardTitle>All Scheduler Entries</CardTitle>
           <CardDescription>
-            View all outbound outreach entries logged by admins
+            View all timeslots and their booking status
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading && (
             <div className="py-8 text-center text-muted-foreground">
-              Loading outreach...
+              Loading scheduler...
             </div>
           )}
 
@@ -143,16 +154,44 @@ export default function AdminOutreachPage() {
             </div>
           )}
 
-          {!isLoading && !error && outreach.length === 0 && (
+          {!isLoading && !error && scheduler.length === 0 && (
             <div className="py-8 text-center text-muted-foreground">
-              No outreach submissions found
+              No scheduler entries found
             </div>
           )}
 
-          {!isLoading && !error && outreach.length > 0 && (
+          {!isLoading && !error && scheduler.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort("timeslot")}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      Timeslot
+                      {sortColumn === "timeslot" &&
+                        (sortDirection === "asc" ? (
+                          <ArrowUp className="size-3" />
+                        ) : (
+                          <ArrowDown className="size-3" />
+                        ))}
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort("status")}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      Status
+                      {sortColumn === "status" &&
+                        (sortDirection === "asc" ? (
+                          <ArrowUp className="size-3" />
+                        ) : (
+                          <ArrowDown className="size-3" />
+                        ))}
+                    </button>
+                  </TableHead>
                   <TableHead>
                     <button
                       onClick={() => handleSort("name")}
@@ -183,11 +222,11 @@ export default function AdminOutreachPage() {
                   </TableHead>
                   <TableHead>
                     <button
-                      onClick={() => handleSort("role")}
+                      onClick={() => handleSort("purpose")}
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                     >
-                      Interest
-                      {sortColumn === "role" &&
+                      Purpose
+                      {sortColumn === "purpose" &&
                         (sortDirection === "asc" ? (
                           <ArrowUp className="size-3" />
                         ) : (
@@ -195,42 +234,25 @@ export default function AdminOutreachPage() {
                         ))}
                     </button>
                   </TableHead>
-                  <TableHead>
-                    <button
-                      onClick={() => handleSort("created_at")}
-                      className="flex items-center gap-1 hover:text-foreground transition-colors"
-                    >
-                      Created At
-                      {sortColumn === "created_at" &&
-                        (sortDirection === "asc" ? (
-                          <ArrowUp className="size-3" />
-                        ) : (
-                          <ArrowDown className="size-3" />
-                        ))}
-                    </button>
-                  </TableHead>
-                  <TableHead>Purpose</TableHead>
                   <TableHead>Notes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedOutreach.map((item) => (
+                {sortedScheduler.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">
-                      {item.name || "-"}
+                      {formatDate(item.timeslot)}
                     </TableCell>
-                    <TableCell>{item.email}</TableCell>
                     <TableCell>
-                      {item.role ? (
-                        <Badge variant="secondary">{item.role}</Badge>
-                      ) : (
-                        "-"
-                      )}
+                      <Badge variant={item.instructor_id ? "default" : "outline"}>
+                        {item.instructor_id ? "Booked" : "Open"}
+                      </Badge>
                     </TableCell>
-                    <TableCell>{formatDate(item.created_at)}</TableCell>
+                    <TableCell>{item.name || "-"}</TableCell>
+                    <TableCell>{item.email || "-"}</TableCell>
                     <TableCell>
                       {item.purpose ? (
-                        <Badge variant="outline">{item.purpose}</Badge>
+                        <Badge variant="secondary">{item.purpose}</Badge>
                       ) : (
                         "-"
                       )}
@@ -246,12 +268,21 @@ export default function AdminOutreachPage() {
         </CardContent>
       </Card>
 
-      <AddOutreachDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
+      <OpenTimeslotsDialog
+        open={openTimeslotsOpen}
+        onOpenChange={setOpenTimeslotsOpen}
         onSuccess={() => {
           void refetch()
-          setAddDialogOpen(false)
+          setOpenTimeslotsOpen(false)
+        }}
+      />
+
+      <BookTimeslotDialog
+        open={bookDialogOpen}
+        onOpenChange={setBookDialogOpen}
+        onSuccess={() => {
+          void refetch()
+          setBookDialogOpen(false)
         }}
       />
     </div>

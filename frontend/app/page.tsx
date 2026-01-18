@@ -12,24 +12,88 @@ import { getApiUrl } from "@/lib/utils"
  */
 export default function NeuronLandingPage() {
   const [status, setStatus] = React.useState<"idle" | "submitting" | "sent" | "error">("idle")
+  const [name, setName] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [interest, setInterest] = React.useState("Invite / early access")
   const [notes, setNotes] = React.useState("")
+  const [selectedTimeslot, setSelectedTimeslot] = React.useState<string>("")
+  const [availableTimeslots, setAvailableTimeslots] = React.useState<Array<{ id: number; timeslot: string }>>([])
+  const [timeslotsLoading, setTimeslotsLoading] = React.useState(false)
+
+  // Fetch available timeslots on mount
+  React.useEffect(() => {
+    async function fetchTimeslots() {
+      setTimeslotsLoading(true)
+      try {
+        const res = await fetch(`${getApiUrl()}/admin/scheduler/available`)
+        if (res.ok) {
+          const data = await res.json()
+          setAvailableTimeslots(data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch timeslots:", error)
+      } finally {
+        setTimeslotsLoading(false)
+      }
+    }
+    void fetchTimeslots()
+  }, [])
+
+  // Group timeslots by day
+  const timeslotsByDay = React.useMemo(() => {
+    const grouped: Record<string, Array<{ id: number; timeslot: string }>> = {}
+    
+    availableTimeslots.forEach((slot) => {
+      const date = new Date(slot.timeslot)
+      const dayKey = date.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+      
+      if (!grouped[dayKey]) {
+        grouped[dayKey] = []
+      }
+      grouped[dayKey].push(slot)
+    })
+    
+    // Sort days chronologically
+    const sortedDays = Object.keys(grouped).sort((a, b) => {
+      const dateA = new Date(grouped[a][0].timeslot)
+      const dateB = new Date(grouped[b][0].timeslot)
+      return dateA.getTime() - dateB.getTime()
+    })
+    
+    return sortedDays.map((day) => ({
+      day,
+      slots: grouped[day].sort((a, b) => new Date(a.timeslot).getTime() - new Date(b.timeslot).getTime()),
+    }))
+  }, [availableTimeslots])
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setStatus("submitting")
 
+    if (!selectedTimeslot) {
+      setStatus("error")
+      return
+    }
+
+    setStatus("submitting")
+
     try {
-      const res = await fetch(`${getApiUrl()}/admin/outreach`, {
+      const res = await fetch(`${getApiUrl()}/admin/scheduler/interest`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          name: name || "",
           email,
-          role: interest,
           notes: notes || null,
+          purpose: interest || null,
+          timeslot: selectedTimeslot,
         }),
       })
 
@@ -39,9 +103,11 @@ export default function NeuronLandingPage() {
 
       setStatus("sent")
       // Reset form
+      setName("")
       setEmail("")
       setInterest("Invite / early access")
       setNotes("")
+      setSelectedTimeslot("")
     } catch (error) {
       setStatus("error")
     }
@@ -212,6 +278,58 @@ export default function NeuronLandingPage() {
 
               <form onSubmit={onSubmit} className="mt-6 space-y-4">
                 <div>
+                  <label className="block text-xs font-medium">Select a timeslot *</label>
+                  {timeslotsLoading ? (
+                    <div className="mt-2 text-sm text-muted-foreground">Loading timeslots...</div>
+                  ) : timeslotsByDay.length === 0 ? (
+                    <div className="mt-2 text-sm text-muted-foreground">No available timeslots at the moment</div>
+                  ) : (
+                    <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-border bg-card">
+                      {timeslotsByDay.map(({ day, slots }) => (
+                        <div key={day} className="border-b border-border last:border-b-0">
+                          <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50">
+                            {day}
+                          </div>
+                          {slots.map((slot) => {
+                            const slotTime = new Date(slot.timeslot)
+                            const timeStr = slotTime.toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                            const slotValue = slot.timeslot
+                            const isSelected = selectedTimeslot === slotValue
+                            
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                onClick={() => setSelectedTimeslot(slotValue)}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors ${
+                                  isSelected ? "bg-primary/10 border-l-2 border-l-primary" : ""
+                                }`}
+                              >
+                                {timeStr}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium">Name</label>
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-xs font-medium">School email</label>
                   <input
                     required
@@ -238,7 +356,7 @@ export default function NeuronLandingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium">Name and note</label>
+                  <label className="block text-xs font-medium">Notes</label>
                   <textarea
                     placeholder="Course name, size, and how you're thinking about AI policy…"
                     rows={4}

@@ -58,5 +58,5 @@ async def require_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
-
+    print(user)
     return user

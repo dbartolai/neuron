@@ -91,12 +91,13 @@ class ResendService:
         return email
 
     @staticmethod
-    def send_outreach_notification(email: str, role: str | None, notes: str | None):
+    def send_outreach_notification(name: str | None, email: str, role: str | None, notes: str | None):
         """
         Send an email notification to drakeab2@illinois.edu when a new outreach submission is received.
         """
         from datetime import datetime
         
+        name_display = name if name else "Not provided"
         role_display = role if role else "Not specified"
         notes_display = notes if notes else "No notes provided"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -119,6 +120,7 @@ class ResendService:
                     </p>
 
                     <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin: 24px 0;">
+                        <p style="margin: 0 0 8px 0;"><strong>Name:</strong> {name_display}</p>
                         <p style="margin: 0 0 8px 0;"><strong>Email:</strong> {email}</p>
                         <p style="margin: 0 0 8px 0;"><strong>Interest:</strong> {role_display}</p>
                         <p style="margin: 0 0 8px 0;"><strong>Notes:</strong> {notes_display}</p>
