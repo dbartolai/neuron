@@ -4,7 +4,6 @@
 # Write chats back to the db, gather context, delete/revise individual messages
 
 import asyncpg
-from asyncpg.exceptions import UniqueViolationError
 from typing import Optional, List
 from uuid import UUID
 from app.schemas.thread import GetThreadResponse, ThreadType
@@ -96,23 +95,9 @@ class ThreadService:
             RETURNING id
         """
 
-        max_retries = 10
-        current_title = thread_name
-        
-        for attempt in range(max_retries):
-            try:
-                row = await db.fetchrow(query, course_id, user_id, current_title, thread_type)
-                return row["id"]
-            except UniqueViolationError:
-                # Title already exists for this user, try with a suffix
-                if attempt < max_retries - 1:
-                    current_title = f"{thread_name} ({attempt + 2})"
-                else:
-                    # All retries exhausted
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Unable to create thread with unique title after {max_retries} attempts"
-                    )
+        row = await db.fetchrow(query, course_id, user_id, thread_name, thread_type)
+
+        return row["id"]
     
     @staticmethod
     async def get_thread_name_by_id(db: asyncpg.Connection, thread_id: UUID) -> str:

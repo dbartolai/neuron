@@ -70,7 +70,14 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
     # add user chat to logs
     await LogService.insert_message(db, thread_id, ChatRole.student, body.message)
 
-    passed, details = await ChatService.evaluate_student_rules(body.message, level.get("student_rules", []))
+    user_id = UUID(user["id"])
+    passed, details = await ChatService.evaluate_student_rules(
+        body.message,
+        level.get("student_rules", []),
+        db=db,
+        user_id=user_id,
+        thread_id=thread_id,
+    )
     if not passed:
         violations = details.get("violations", [])
         reasons = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Does not meet student rules."
@@ -112,10 +119,24 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
             "If file_search was used, include citations with filename and a minimal quoted snippet.",
         ]
 
-    assistant_output: str = await ChatService.chat_with_guardrails(messages, guardrails, vector_store_id=vector_store_id)
+    assistant_output: str = await ChatService.chat_with_guardrails(
+        messages,
+        guardrails,
+        vector_store_id=vector_store_id,
+        db=db,
+        user_id=user_id,
+        thread_id=thread_id,
+    )
 
     # 3) Stage 3 — Response rule evaluation
-    resp_passed, resp_details = await ChatService.evaluate_response_rules(body.message, assistant_output, response_rules)
+    resp_passed, resp_details = await ChatService.evaluate_response_rules(
+        body.message,
+        assistant_output,
+        response_rules,
+        db=db,
+        user_id=user_id,
+        thread_id=thread_id,
+    )
 
     if not resp_passed:
         violations = resp_details.get("violations", [])
@@ -123,10 +144,24 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
         corrective_guardrail = [
             f"Follow all response rules strictly. Your previous response violated: {vtext}. Revise and answer again without violating any rules."
         ]
-        assistant_output_retry: str = await ChatService.chat_with_guardrails(messages, guardrails + corrective_guardrail, vector_store_id=vector_store_id)
-        retry_passed, _ = await ChatService.evaluate_response_rules(body.message, assistant_output_retry, response_rules)
+        assistant_output_retry: str = await ChatService.chat_with_guardrails(
+            messages,
+            guardrails + corrective_guardrail,
+            vector_store_id=vector_store_id,
+            db=db,
+            user_id=user_id,
+            thread_id=thread_id,
+        )
+        retry_passed, _ = await ChatService.evaluate_response_rules(
+            body.message,
+            assistant_output_retry,
+            response_rules,
+            db=db,
+            user_id=user_id,
+            thread_id=thread_id,
+        )
         if retry_passed:
-            await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output_retry)
+            chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output_retry)
             return ChatResponse(role=ChatRole.assistant, content=assistant_output_retry)
         else:
             fail_msg = (
@@ -137,7 +172,7 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
             return ChatResponse(role=ChatRole.system, content=fail_msg)
 
     # success on first attempt
-    await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output)
+    chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output)
     return ChatResponse(role=ChatRole.assistant, content=assistant_output)
 
 
@@ -192,7 +227,14 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
     # add user chat to logs
     await LogService.insert_message(db, thread_id, ChatRole.student, body.message)
 
-    passed, details = await ChatService.evaluate_student_rules(body.message, level.get("student_rules", []))
+    user_id = UUID(user["id"])
+    passed, details = await ChatService.evaluate_student_rules(
+        body.message,
+        level.get("student_rules", []),
+        db=db,
+        user_id=user_id,
+        thread_id=thread_id,
+    )
     
     # Prepare data for the stream generator
     stream_context = {
@@ -202,6 +244,7 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
         "passed": passed,
         "details": details,
         "level": level,
+        "user_id": user_id,
     }
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -213,6 +256,7 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
         details = stream_context["details"]
         level = stream_context["level"]
         course_id = stream_context["course_id"]
+        user_id = stream_context["user_id"]
         
         # Acquire a fresh DB connection for operations inside the generator
         # (the dependency-injected connection is released when endpoint returns)
@@ -257,15 +301,39 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                     "When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
                 ]
 
-            # Stream the response
+            # Stream the response and capture usage
             full_response = ""
+            usage_info = {}
             try:
-                async for token in ChatService.chat_with_guardrails_stream(messages, guardrails, vector_store_id=vector_store_id):
+                async for token in ChatService.chat_with_guardrails_stream(
+                    messages,
+                    guardrails,
+                    vector_store_id=vector_store_id,
+                    usage_info=usage_info,
+                ):
                     full_response += token
                     yield f"event: token\ndata: {json.dumps({'content': token})}\n\n"
 
-                # Save the complete message to the database
-                await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, full_response)
+                # Save the complete message to the database and get chat_id
+                chat_id = await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, full_response)
+                
+                # Log AI event with usage info
+                if usage_info:
+                    from app.services.ai_events_service import AIEventsService
+                    try:
+                        await AIEventsService.log_ai_event(
+                            db=db_conn,
+                            provider="openai",
+                            model=usage_info.get('model', 'gpt-5.1'),
+                            user_id=user_id,
+                            tokens_in=usage_info.get('tokens_in'),
+                            tokens_out=usage_info.get('tokens_out'),
+                            tokens_total=usage_info.get('tokens_total'),
+                            chat_id=chat_id,
+                            thread_id=thread_id,
+                        )
+                    except Exception as e:
+                        print(f"Failed to log AI event for streaming chat: {str(e)}")
             except Exception as e:
                 # Log the error and send an error event to the client
                 error_msg = f"An error occurred while processing your request. Please try again or contact support if the issue persists."

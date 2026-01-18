@@ -263,11 +263,12 @@ async def unlock_insights(course_id: UUID, db = Depends(get_db), user: User = De
         raise HTTPException(400, detail="Insights are already unlocked for this course")
     
     try:
+        user_id = UUID(user["id"])
         # Generate tags
-        tags = await InsightsService.generate_thread_tags(db, course_id)
+        tags = await InsightsService.generate_thread_tags(db, course_id, user_id=user_id)
         
         # Classify threads
-        classification_result = await InsightsService.classify_threads(db, course_id, tags)
+        classification_result = await InsightsService.classify_threads(db, course_id, tags, user_id=user_id)
         
         # Save tags to course
         await CourseService.set_thread_tags(db, course_id, tags)
@@ -362,7 +363,8 @@ async def update_tags(course_id: UUID, body: UpdateTagsRequest, db = Depends(get
     # Reclassify all threads with the new tags if requested
     if body.reclassify:
         try:
-            classification_result = await InsightsService.classify_threads(db, course_id, body.tags)
+            user_id = UUID(user["id"])
+            classification_result = await InsightsService.classify_threads(db, course_id, body.tags, user_id=user_id)
             result["classification"] = classification_result
         except Exception as e:
             raise HTTPException(500, detail=f"Tags updated but reclassification failed: {str(e)}")

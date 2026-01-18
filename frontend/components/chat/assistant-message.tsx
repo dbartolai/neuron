@@ -52,6 +52,10 @@ export default function AssistantMessage({ content, isStreaming = false }: Assis
             h6: ({ node, ...props }) => (
               <h6 className="text-sm font-semibold mt-2 mb-1 text-foreground" {...props} />
             ),
+            // Paragraphs with larger spacing
+            p: ({ node, ...props }) => (
+              <p className="mt-6 text-foreground" {...props} />
+            ),
             // Horizontal rule with proper spacing
             hr: ({ node, ...props }) => (
               <hr className="my-6 border-border" {...props} />

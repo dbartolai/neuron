@@ -9,13 +9,15 @@ from uuid import UUID
 class LogService:
 
     @staticmethod
-    async def insert_message(db: asyncpg.Connection, thread_id: UUID, role: ChatRole, message: str) -> None:
+    async def insert_message(db: asyncpg.Connection, thread_id: UUID, role: ChatRole, message: str) -> UUID:
         query = """
             INSERT INTO chat_logs (thread_id, role, message)
             VALUES ($1, $2, $3)
+            RETURNING id
         """
 
-        await db.execute(query, thread_id, role, message)
+        row = await db.fetchrow(query, thread_id, role, message)
+        return row["id"]
 
     @staticmethod
     async def get_messages_from_thread(db: asyncpg.Connection, thread_id: UUID, limit: int = 20) -> List[MessageLog]:

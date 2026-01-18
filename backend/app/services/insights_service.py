@@ -2,12 +2,13 @@
 
 import json
 import asyncpg
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from uuid import UUID
 from openai import OpenAI
 from app.services.thread_service import ThreadService
 from app.services.course_service import CourseService
 from app.services.log_service import LogService
+from app.services.ai_events_service import AIEventsService
 from app.schemas.chat import ChatRole
 
 client = OpenAI()
@@ -16,7 +17,11 @@ client = OpenAI()
 class InsightsService:
 
     @staticmethod
-    async def generate_thread_tags(db: asyncpg.Connection, course_id: UUID) -> List[str]:
+    async def generate_thread_tags(
+        db: asyncpg.Connection,
+        course_id: UUID,
+        user_id: Optional[UUID] = None,
+    ) -> List[str]:
         """AI-powered tag generation. Generates 10 topic tags based on thread content."""
         # Get course info
         course_name = await CourseService.get_course_name_by_id(db, course_id)
@@ -59,10 +64,32 @@ Sample student threads:
 Generate 10 topic tags that categorize these student discussions."""
 
         try:
+            model = "gpt-5.1"
             response = client.responses.create(
-                model="gpt-4.1",
+                model=model,
                 input=system_prompt + "\n\n" + user_prompt,
             )
+            
+            # Extract usage and log event
+            usage = getattr(response, 'usage', None)
+            if usage:
+                try:
+                    tokens_in = getattr(usage, 'input_tokens', None)
+                    tokens_out = getattr(usage, 'output_tokens', None)
+                    tokens_total = getattr(usage, 'total_tokens', None)
+                    
+                    await AIEventsService.log_ai_event(
+                        db=db,
+                        provider="openai",
+                        model=model,
+                        user_id=user_id,
+                        tokens_in=tokens_in,
+                        tokens_out=tokens_out,
+                        tokens_total=tokens_total,
+                    )
+                except Exception as e:
+                    print(f"Failed to log AI event for generate_thread_tags: {str(e)}")
+            
             text = response.output_text.strip()
             
             # Clean up the response (remove markdown code blocks if present)
@@ -92,7 +119,12 @@ Generate 10 topic tags that categorize these student discussions."""
             raise ValueError(f"AI tag generation failed: {str(e)}")
 
     @staticmethod
-    async def classify_threads(db: asyncpg.Connection, course_id: UUID, tags: List[str]) -> Dict[str, Any]:
+    async def classify_threads(
+        db: asyncpg.Connection,
+        course_id: UUID,
+        tags: List[str],
+        user_id: Optional[UUID] = None,
+    ) -> Dict[str, Any]:
         """AI-powered thread classification. Classifies each thread into one of the tags."""
         # Get all threads with their first messages
         threads = await ThreadService.get_threads_with_messages(db, course_id)
@@ -126,10 +158,32 @@ Available Tags: {', '.join(tags)}
 
 Which tag best categorizes this thread? Return only the tag name."""
 
+                model = "gpt-5.1"
                 response = client.responses.create(
-                    model="gpt-4.1",
+                    model=model,
                     input=system_prompt + "\n\n" + user_prompt,
                 )
+                
+                # Extract usage and log event for each classification
+                usage = getattr(response, 'usage', None)
+                if usage:
+                    try:
+                        tokens_in = getattr(usage, 'input_tokens', None)
+                        tokens_out = getattr(usage, 'output_tokens', None)
+                        tokens_total = getattr(usage, 'total_tokens', None)
+                        
+                        await AIEventsService.log_ai_event(
+                            db=db,
+                            provider="openai",
+                            model=model,
+                            user_id=user_id,
+                            tokens_in=tokens_in,
+                            tokens_out=tokens_out,
+                            tokens_total=tokens_total,
+                            thread_id=thread_id,
+                        )
+                    except Exception as e:
+                        print(f"Failed to log AI event for classify_threads: {str(e)}")
                 
                 classified_tag = response.output_text.strip()
                 

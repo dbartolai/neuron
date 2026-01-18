@@ -5,10 +5,13 @@
 """
 
 import json
-from typing import List, Tuple, Dict, Any, AsyncGenerator
+from typing import List, Tuple, Dict, Any, AsyncGenerator, Optional
 from app.schemas.chat import ChatRequest, ChatResponse, MessageEntry
 from app.schemas.log import MessageLog
 from openai import OpenAI
+from uuid import UUID
+import asyncpg
+from app.services.ai_events_service import AIEventsService
 
 
 client = OpenAI()
@@ -24,7 +27,13 @@ class ChatService:
 
     # ------------ Stage 1: Student Rules Check ------------
     @staticmethod
-    async def evaluate_student_rules(student_prompt: str, student_rules: List[str]) -> Tuple[bool, Dict[str, Any]]:
+    async def evaluate_student_rules(
+        student_prompt: str,
+        student_rules: List[str],
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+        thread_id: Optional[UUID] = None,
+    ) -> Tuple[bool, Dict[str, Any]]:
         """Evaluate the student's prompt against the numbered student_rules.
         Returns (passed: bool, details: dict). details includes violations and an inferred requires_file_search flag.
         """
@@ -50,10 +59,33 @@ class ChatService:
             f"Rubric:\n{json.dumps(rubric)}"
         )
 
+        model = "gpt-5-nano"
         response = client.responses.create(
-            model="gpt-4.1",
+            model=model,
             input=system + "\n" + user,
         )
+        
+        # Extract usage and log event
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+                
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                    thread_id=thread_id,
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for evaluate_student_rules: {str(e)}")
+        
         text = response.output_text or "{}"
         try:
             data = json.loads(text)
@@ -72,6 +104,10 @@ class ChatService:
         messages: List[MessageEntry],
         guardrails: List[str],
         vector_store_id: str | None = None,
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+        thread_id: Optional[UUID] = None,
+        chat_id: Optional[UUID] = None,
     ) -> str:
         """Send a chat to OpenAI with guardrails prepended as system guidance.
         If vector_store_id is provided, expose the file_search tool bound to that store.
@@ -90,8 +126,9 @@ class ChatService:
                 buf.append(f"{m.role}: {m.content}")
         convo = "\n".join(buf)
 
+        model = "gpt-5.1"
         kwargs = {
-            "model": "gpt-4.1",
+            "model": model,
             "input": system + "\n" + convo,
         }
         if vector_store_id:
@@ -99,6 +136,29 @@ class ChatService:
             kwargs["tool_resources"] = {"file_search": {"vector_store_ids": [vector_store_id]}}
 
         response = client.responses.create(**kwargs)
+        
+        # Extract usage and log event
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+                
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                    chat_id=chat_id,
+                    thread_id=thread_id,
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for chat_with_guardrails: {str(e)}")
+        
         return response.output_text
 
     # ------------ Stage 2b: Guardrailed Chat with Streaming ------------
@@ -107,10 +167,12 @@ class ChatService:
         messages: List[MessageEntry],
         guardrails: List[str],
         vector_store_id: str | None = None,
+        usage_info: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream a chat response from OpenAI with guardrails prepended as system guidance.
         Yields tokens as they arrive from the API.
         If vector_store_id is provided, expose the file_search tool bound to that store.
+        If usage_info dict is provided, it will be populated with usage data from the final event.
         """
         system = (
             "All responses must be valid GitHub-Flavored Markdown.\n"
@@ -126,8 +188,9 @@ class ChatService:
                 buf.append(f"{m.role}: {m.content}")
         convo = "\n".join(buf)
 
+        model = "gpt-5.1"
         kwargs = {
-            "model": "gpt-4.1",
+            "model": model,
             "input": system + "\n" + convo,
             "stream": True,
         }
@@ -139,17 +202,43 @@ class ChatService:
         try:
             response_stream = client.responses.create(**kwargs)
             
+            final_usage = None
             for event in response_stream:
                 # Handle text delta events from the streaming response
                 if event.type == "response.output_text.delta":
                     yield event.delta
+                # Check for final event with usage - check multiple possible locations
+                elif event.type == "response.completed":
+                    if hasattr(event, 'usage') and event.usage is not None:
+                        final_usage = event.usage
+                    elif hasattr(event, 'response') and hasattr(event.response, 'usage') and event.response.usage is not None:
+                        final_usage = event.response.usage
+                # Legacy checks for other event types
+                elif hasattr(event, 'usage') and event.usage is not None:
+                    final_usage = event.usage
+                elif hasattr(event, 'response') and hasattr(event.response, 'usage') and event.response.usage is not None:
+                    final_usage = event.response.usage
+            
+            # Store usage info if dict provided
+            if usage_info is not None and final_usage is not None:
+                usage_info['model'] = model
+                usage_info['tokens_in'] = getattr(final_usage, 'input_tokens', None)
+                usage_info['tokens_out'] = getattr(final_usage, 'output_tokens', None)
+                usage_info['tokens_total'] = getattr(final_usage, 'total_tokens', None)
         except Exception as e:
             # Re-raise to be handled by the router
             raise Exception(f"OpenAI API error: {str(e)}") from e
 
     # ------------ Stage 3: Response Rules Check ------------
     @staticmethod
-    async def evaluate_response_rules(student_prompt: str, model_response: str, response_rules: List[str]) -> Tuple[bool, Dict[str, Any]]:
+    async def evaluate_response_rules(
+        student_prompt: str,
+        model_response: str,
+        response_rules: List[str],
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+        thread_id: Optional[UUID] = None,
+    ) -> Tuple[bool, Dict[str, Any]]:
         """Evaluate the model's response against response_rules. Returns (passed, details)."""
         rubric = {
             "instructions": (
@@ -171,10 +260,33 @@ class ChatService:
             f"Rubric:\n{json.dumps(rubric)}"
         )
 
+        model = "gpt-5-nano"
         response = client.responses.create(
-            model="gpt-4.1",
+            model=model,
             input=system + "\n" + user,
         )
+        
+        # Extract usage and log event
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+                
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                    thread_id=thread_id,
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for evaluate_response_rules: {str(e)}")
+        
         text = response.output_text or "{}"
         try:
             data = json.loads(text)
@@ -186,34 +298,93 @@ class ChatService:
 
     # -------- Existing helpers (kept for compatibility) --------
     @staticmethod
-    async def send_message(message: str) -> str:
+    async def send_message(
+        message: str,
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+    ) -> str:
         system = """
             All responses must be valid GitHub-Flavored Markdown.
             Do not emit HTML.
             If writing code, use fenced code blocks with language tags. \n
         """
 
+        model = "gpt-5.1"
         response = client.responses.create(
-            model="gpt-4.1",
+            model=model,
             input=system + message,
         )
+        
+        # Extract usage and log event
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+                
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for send_message: {str(e)}")
+        
         return response.output_text
 
     @staticmethod
-    async def create_title(message: str) -> str:
+    async def create_title(
+        message: str,
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+        thread_id: Optional[UUID] = None,
+    ) -> str:
         get_title_input = """
             The following message is from a user.
             Create and return an appropriate title for the conversation and nothing else.
             Ensure the title is 20 characters or less. \n\n
         """
+        model = "gpt-5.1"
         response = client.responses.create(
-            model="gpt-4.1",
+            model=model,
             input=(get_title_input + message),
         )
+        
+        # Extract usage and log event
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+                
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                    thread_id=thread_id,
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for create_title: {str(e)}")
+        
         return response.output_text
 
     @staticmethod
-    async def summarize_context(log: List[MessageLog]) -> str:
+    async def summarize_context(
+        log: List[MessageLog],
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+        thread_id: Optional[UUID] = None,
+    ) -> str:
         context_input = ""
         for chat in log:
             sender = chat.role
@@ -221,9 +392,32 @@ class ChatService:
             context_input += chat.message
             context_input += "\n"
 
+        model = "gpt-5.1"
         response = client.responses.create(
-            model="gpt-4.1",
+            model=model,
             instructions="Summarize the provided conversation between this user and chatbot",
             input=context_input,
         )
+        
+        # Extract usage and log event
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+                
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                    thread_id=thread_id,
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for summarize_context: {str(e)}")
+        
         return response.output_text
