@@ -16,7 +16,7 @@ import {
   SquareTerminal,
 } from "lucide-react"
 import Link from "next/link"
-import { NavMain } from "@/components/nav-main"
+import { NavMain, NavMainSkeleton } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -50,7 +50,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const { courseId } = useParams<{ courseId?: string; threadId?: string}>()
 
-  const { courses, user, isLoading, error, updateThreadName, deleteThread } = useSidebar();
+  const { courses, user, isLoading, isRefetching, error, updateThreadName, deleteThread } = useSidebar();
   const [isInstructor, setIsInstructor] = React.useState(false);
   const [link, setLink] = React.useState("/chat");
 
@@ -120,24 +120,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-       {isLoading && (
-          <div className="px-3 py-2 text-sm text-muted-foreground">
-            Loading courses…
-          </div>
-        )}
-
-        {error && (
+        {isLoading ? (
+          <NavMainSkeleton count={courses.length || 3} />
+        ) : error ? (
           <div className="px-3 py-2 text-sm text-destructive">
             {error}
           </div>
-        )}
+        ) : (
+          <>
 
-        {!isLoading && !error && (
-          <NavMain 
-            items={navMain} 
-            updateThreadName={updateThreadName}
-            deleteThread={deleteThread}
-          />
+            <NavMain 
+              items={navMain} 
+              updateThreadName={updateThreadName}
+              deleteThread={deleteThread}
+            />
+          </>
         )}
         {/* <NavProjects projects={data.projects} /> */}
         <NavSecondary items={navSecondaryItems} className="mt-auto" />

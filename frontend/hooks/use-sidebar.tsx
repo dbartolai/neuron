@@ -27,6 +27,7 @@ type Sidebar = {
     courses: NavCourse[];
     user?: NavUser;
     isLoading: boolean;
+    isRefetching: boolean;
     error: string | null;
     refetch: () => Promise<void>;
     updateThreadName: (threadId: string, newName: string) => Promise<void>;
@@ -78,14 +79,19 @@ export function useSidebar() : Sidebar {
     const [courses, setCourses] = React.useState<NavCourse[]>([]);
     const [user, setUser] = React.useState<NavUser>();
     const [error, setError] = React.useState<string | null>(null);
-    const [isLoading, setIsLoading] = React.useState(false);
+    const [isLoading, setIsLoading] = React.useState(true); // initial load only
+    const [isRefetching, setIsRefetching] = React.useState(false); // background updates
 
-    const refetch = React.useCallback(async () => {
+    const refetch = React.useCallback(async (isInitialLoad = false) => {
 
         const controller = new AbortController();
 
         setError(null);
-        setIsLoading(true);
+        if (isInitialLoad) {
+            setIsLoading(true);
+        } else {
+            setIsRefetching(true);
+        }
 
         try {
             
@@ -124,7 +130,11 @@ export function useSidebar() : Sidebar {
             if (e?.name === "AbortError") return;
             setError(e?.message || "couldn't load sidebar");
         } finally {
-            setIsLoading(false);
+            if (isInitialLoad) {
+                setIsLoading(false);
+            } else {
+                setIsRefetching(false);
+            }
         }
 
 
@@ -132,10 +142,36 @@ export function useSidebar() : Sidebar {
 
     // initially load sidebar
     React.useEffect(() => {
-        void refetch();
+        void refetch(true);
     }, [refetch]);
 
     const updateThreadName = React.useCallback(async (threadId: string, newName: string) => {
+        // Optimistically update the thread name in local state
+        // Capture current state for potential rollback
+        let previousState: NavCourse[] | null = null;
+        
+        setCourses((prevCourses) => {
+            // Store previous state synchronously for rollback
+            previousState = prevCourses;
+            
+            return prevCourses.map((course) => {
+                const threadIndex = course.items.findIndex((item) => item.id === threadId);
+                if (threadIndex !== -1) {
+                    // Found the thread in this course, update it
+                    const updatedItems = [...course.items];
+                    updatedItems[threadIndex] = {
+                        ...updatedItems[threadIndex],
+                        title: newName,
+                    };
+                    return {
+                        ...course,
+                        items: updatedItems,
+                    };
+                }
+                return course;
+            });
+        });
+
         try {
             const token = await getAccessToken();
             const res = await fetch(`${getApiUrl()}/student/threads/${threadId}/name`, {
@@ -151,15 +187,48 @@ export function useSidebar() : Sidebar {
                 throw new Error(`Failed to update thread name: ${res.status}`);
             }
 
-            // Refetch sidebar data to reflect the change
-            await refetch();
+            // Optionally refetch in background for eventual consistency
+            // This ensures we have the latest data but doesn't block the UI
+            refetch(false).catch((err) => {
+                console.error("Background refetch failed after thread update:", err);
+            });
         } catch (error) {
+            // Rollback optimistic update on error
+            if (previousState) {
+                setCourses(previousState);
+            }
             console.error("Error updating thread name:", error);
             throw error;
         }
     }, [refetch]);
 
     const deleteThread = React.useCallback(async (threadId: string) => {
+        // Optimistically remove the thread from local state
+        // Capture current state for potential rollback
+        let previousState: NavCourse[] | null = null;
+        
+        setCourses((prevCourses) => {
+            // Store previous state synchronously for rollback
+            previousState = prevCourses;
+            
+            return prevCourses.map((course) => {
+                const threadIndex = course.items.findIndex((item) => item.id === threadId);
+                if (threadIndex !== -1) {
+                    // Found the thread in this course, remove it
+                    const updatedItems = course.items.filter((item) => item.id !== threadId);
+                    return {
+                        ...course,
+                        items: updatedItems,
+                        meta: {
+                            ...course.meta,
+                            threadCount: Math.max(0, course.meta.threadCount - 1),
+                        },
+                    };
+                }
+                return course;
+            });
+        });
+
         try {
             const token = await getAccessToken();
             const res = await fetch(`${getApiUrl()}/student/threads/${threadId}/delete`, {
@@ -173,13 +242,19 @@ export function useSidebar() : Sidebar {
                 throw new Error(`Failed to delete thread: ${res.status}`);
             }
 
-            // Refetch sidebar data to reflect the change
-            await refetch();
+            // Optionally refetch in background for eventual consistency
+            refetch(false).catch((err) => {
+                console.error("Background refetch failed after thread delete:", err);
+            });
         } catch (error) {
+            // Rollback optimistic update on error
+            if (previousState) {
+                setCourses(previousState);
+            }
             console.error("Error deleting thread:", error);
             throw error;
         }
     }, [refetch]);
 
-    return {courses, user, isLoading, error, refetch, updateThreadName, deleteThread};
+    return {courses, user, isLoading, isRefetching, error, refetch, updateThreadName, deleteThread};
 }

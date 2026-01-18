@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function NavMain({
   items,
@@ -207,6 +208,33 @@ export function NavMain({
               ) : null}
             </SidebarMenuItem>
           </Collapsible>
+        ))}
+      </SidebarMenu>
+    </SidebarGroup>
+  )
+}
+
+export function NavMainSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>Courses</SidebarGroupLabel>
+      <SidebarMenu>
+        {Array.from({ length: count }).map((_, courseIndex) => (
+          <SidebarMenuItem key={courseIndex}>
+            <div className="flex h-8 items-center gap-2 rounded-md px-2">
+              <Skeleton className="size-4 rounded-md" />
+              <Skeleton className="h-4 flex-1" style={{ width: `${Math.floor(Math.random() * 30) + 60}%` }} />
+            </div>
+            <SidebarMenuSub>
+              {Array.from({ length: Math.floor(Math.random() * 3) + 3 }).map((_, threadIndex) => (
+                <SidebarMenuSubItem key={threadIndex}>
+                  <div className="flex h-7 items-center gap-2 px-2">
+                    <Skeleton className="h-4 flex-1" style={{ width: `${Math.floor(Math.random() * 40) + 50}%` }} />
+                  </div>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          </SidebarMenuItem>
         ))}
       </SidebarMenu>
     </SidebarGroup>
