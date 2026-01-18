@@ -28,39 +28,56 @@ export function ThinkingIndicator() {
 export default function AssistantMessage({ content, isStreaming = false }: AssistantMessageProps) {
   return (
     <div className="flex justify-center my-4">
-      <div className="max-w-2xl w-full prose">
+      <div className="max-w-2xl w-full prose prose-slate">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeHighlight]}
           components={{
-            // Headers with proper sizing
+            // Headers with proper sizing and spacing
             h1: ({ node, ...props }) => (
-              <h1 className="text-3xl font-bold mt-6 mb-4 text-foreground" {...props} />
+              <h1 className="text-3xl font-bold font-serif mt-6 mb-4 text-foreground leading-tight" {...props} />
             ),
             h2: ({ node, ...props }) => (
-              <h2 className="text-2xl font-semibold mt-5 mb-3 text-foreground" {...props} />
+              <h2 className="text-2xl font-semibold font-serif mt-5 mb-3 text-foreground leading-tight" {...props} />
             ),
             h3: ({ node, ...props }) => (
-              <h3 className="text-xl font-semibold mt-4 mb-2 text-foreground" {...props} />
+              <h3 className="text-xl font-semibold mt-4 mb-2 text-foreground leading-tight" {...props} />
             ),
             h4: ({ node, ...props }) => (
-              <h4 className="text-lg font-semibold mt-3 mb-2 text-foreground" {...props} />
+              <h4 className="text-lg font-semibold mt-3 mb-2 text-foreground leading-tight" {...props} />
             ),
             h5: ({ node, ...props }) => (
-              <h5 className="text-base font-semibold mt-3 mb-1 text-foreground" {...props} />
+              <h5 className="text-base font-semibold mt-3 mb-1 text-foreground leading-tight" {...props} />
             ),
             h6: ({ node, ...props }) => (
-              <h6 className="text-sm font-semibold mt-2 mb-1 text-foreground" {...props} />
+              <h6 className="text-sm font-semibold mt-2 mb-1 text-foreground leading-tight" {...props} />
             ),
-            // Paragraphs with larger spacing
+            // Paragraphs with generous line spacing matching production
             p: ({ node, ...props }) => (
-              <p className="mt-6 text-foreground" {...props} />
+              <p className="mt-6 mb-4 text-foreground leading-7" {...props} />
+            ),
+            // List elements with proper colors and spacing - matching production
+            ul: ({ node, ...props }) => (
+              <ul className="my-4 ml-6 list-disc marker:text-muted-foreground text-foreground space-y-2 leading-7" {...props} />
+            ),
+            ol: ({ node, ...props }) => (
+              <ol className="my-4 ml-6 list-decimal marker:text-muted-foreground text-foreground space-y-2 leading-7" {...props} />
+            ),
+            li: ({ node, ...props }) => (
+              <li className="text-foreground leading-7" {...props} />
+            ),
+            // Bold and italic text - ensure dark color, not white
+            strong: ({ node, ...props }) => (
+              <strong className="font-semibold text-foreground" {...props} />
+            ),
+            em: ({ node, ...props }) => (
+              <em className="italic text-foreground" {...props} />
             ),
             // Horizontal rule with proper spacing
             hr: ({ node, ...props }) => (
               <hr className="my-6 border-border" {...props} />
             ),
-            // Table elements
+            // Table elements with better spacing matching production
             table: ({ node, ...props }) => (
               <div className="overflow-x-auto my-4">
                 <table className="min-w-full border-collapse border border-border" {...props} />
@@ -76,10 +93,10 @@ export default function AssistantMessage({ content, isStreaming = false }: Assis
               <tr className="border-b border-border" {...props} />
             ),
             th: ({ node, ...props }) => (
-              <th className="border border-border px-4 py-2 text-left font-semibold text-foreground" {...props} />
+              <th className="border border-border px-4 py-3 text-left align-middle font-semibold text-foreground" {...props} />
             ),
             td: ({ node, ...props }) => (
-              <td className="border border-border px-4 py-2 text-foreground" {...props} />
+              <td className="border border-border px-4 py-3 text-foreground" {...props} />
             ),
             // Override the <pre> tag to style the code block container
             pre: ({ node, ...props }) => (
