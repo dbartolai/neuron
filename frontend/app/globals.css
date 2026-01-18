@@ -178,14 +178,13 @@
     @apply bg-background text-foreground overscroll-none overflow-x-hidden;
   }
   .hljs {
-    background: transparent !important;
-    color: var(--foreground);
+    @apply bg-card;
     border-radius: calc(var(--radius) - 2px);
     padding: 0;
   }
 
   .hljs pre {
-    background: transparent !important;
+    @apply bg-card;
   }
 }
 
@@ -194,3 +193,14 @@
     font-family: var(--font-source-serif), serif;
   }
 }
+
+.prose :where(pre):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  background-color: var(--card) !important;
+  padding: 0;
+}
+
+.prose :where( code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  background-color: var(--card) !important;
+  padding: 0;
+}
+

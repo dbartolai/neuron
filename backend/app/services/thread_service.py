@@ -34,6 +34,7 @@ class ThreadService:
             FROM threads
             WHERE user_id = $2
             AND course_id = $1
+            AND (deleted IS NULL OR deleted = false)
         """
 
         rows = await db.fetch(query, course_id, user_id)
@@ -48,6 +49,7 @@ class ThreadService:
             FROM threads
             WHERE user_id = $2
             AND course_id = $1
+            AND (deleted IS NULL OR deleted = false)
             ORDER BY updated_at DESC
         """
 
@@ -63,6 +65,7 @@ class ThreadService:
             FROM threads
             WHERE user_id = $2
             AND course_id = $1
+            AND (deleted IS NULL OR deleted = false)
             ORDER BY updated_at DESC
             LIMIT 10
         """
@@ -79,6 +82,7 @@ class ThreadService:
             FROM threads
             WHERE user_id = $2
                 AND course_id = $1
+                AND (deleted IS NULL OR deleted = false)
         """
     
         count: int = await db.fetchval(query, course_id, user_id)
@@ -207,6 +211,34 @@ class ThreadService:
         if course_id is None:
             raise HTTPException(status_code=404, detail="thread not found")
         return course_id
+    
+    @staticmethod
+    async def update_thread_name(db: asyncpg.Connection, thread_id: UUID, user_id: UUID, new_title: str) -> None:
+        """Update a thread's title. Verifies ownership before updating."""
+        # Verify ownership
+        if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user_id):
+            raise HTTPException(status_code=401, detail="Not authorized to update this thread")
+        
+        query = """
+            UPDATE threads
+            SET title = $2, updated_at = NOW()
+            WHERE id = $1
+        """
+        await db.execute(query, thread_id, new_title)
+    
+    @staticmethod
+    async def soft_delete_thread(db: asyncpg.Connection, thread_id: UUID, user_id: UUID) -> None:
+        """Soft delete a thread by setting deleted = true. Verifies ownership before deleting."""
+        # Verify ownership
+        if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user_id):
+            raise HTTPException(status_code=401, detail="Not authorized to delete this thread")
+        
+        query = """
+            UPDATE threads
+            SET deleted = true, updated_at = NOW()
+            WHERE id = $1
+        """
+        await db.execute(query, thread_id)
 
 
 

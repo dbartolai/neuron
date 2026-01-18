@@ -50,7 +50,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const { courseId } = useParams<{ courseId?: string; threadId?: string}>()
 
-  const { courses, user, isLoading, error } = useSidebar();
+  const { courses, user, isLoading, error, updateThreadName, deleteThread } = useSidebar();
   const [isInstructor, setIsInstructor] = React.useState(false);
   const [link, setLink] = React.useState("/chat");
 
@@ -132,7 +132,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </div>
         )}
 
-        {!isLoading && !error && <NavMain items={navMain} />}
+        {!isLoading && !error && (
+          <NavMain 
+            items={navMain} 
+            updateThreadName={updateThreadName}
+            deleteThread={deleteThread}
+          />
+        )}
         {/* <NavProjects projects={data.projects} /> */}
         <NavSecondary items={navSecondaryItems} className="mt-auto" />
       </SidebarContent>

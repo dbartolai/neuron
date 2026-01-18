@@ -29,3 +29,6 @@ class GetThreadResponse(BaseModel):
     updated_at: datetime
     title: str
     thread_type: Optional[ThreadType]
+
+class UpdateThreadNameRequest(BaseModel):
+    title: str
