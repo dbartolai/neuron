@@ -45,6 +45,7 @@ function sortScheduler(
     name: string;
     email: string;
     purpose: string | null;
+    notes: string | null;
     instructor_id: string | null;
   }>,
   column: SortColumn,
