@@ -446,11 +446,15 @@ export default function NeuronLandingPage() {
               <div className="mt-4 space-y-2 text-sm">
                 <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="https://www.linkedin.com/in/drake-bartolai/">
                   Drake Bartolai
-                  <span className="block text-xs text-muted-foreground">Add your LinkedIn URL</span>
+                  <span className="block text-xs text-muted-foreground">Find Drake on LinkedIn</span>
                 </a>
                 <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="https://www.linkedin.com/in/charles-economou/">
-                  Charles Economou
-                  <span className="block text-xs text-muted-foreground">hello@ceria… or your preferred contact</span>
+                  Charleie Economou
+                  <span className="block text-xs text-muted-foreground">Find Charlie on LinkedIn</span>
+                </a>
+                <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="https://www.linkedin.com/in/drake-bartolai/">
+                  ceria
+                  <span className="block text-xs text-muted-foreground">Find ceria on LinkedIn</span>
                 </a>
               </div>
 
