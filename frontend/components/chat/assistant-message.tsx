@@ -28,7 +28,7 @@ export function ThinkingIndicator() {
 export default function AssistantMessage({ content, isStreaming = false }: AssistantMessageProps) {
   return (
     <div className="flex justify-center my-4">
-      <div className="max-w-2xl w-full prose prose-invert">
+      <div className="max-w-2xl w-full prose">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeHighlight]}
