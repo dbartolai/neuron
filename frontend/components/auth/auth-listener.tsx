@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
-const PUBLIC_ROUTES = ["/login", "/signup"];
+const PUBLIC_ROUTES = ["/login", "/signup", "/router"];
 
 export function AuthListener({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -31,7 +31,7 @@ export function AuthListener({ children }: { children: React.ReactNode }) {
         router.replace("/login")
       }
       if (session && onPublic) {
-        router.replace("/chat")
+        router.replace("/router")
       }
     })
 

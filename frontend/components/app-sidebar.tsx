@@ -6,6 +6,7 @@ import {
   Bot,
   Command,
   Frame,
+  GraduationCap,
   LifeBuoy,
   Map,
   PieChart,
@@ -40,6 +41,8 @@ import {
 
 import { useSidebar } from "@/hooks/use-sidebar"
 import { useParams } from "next/navigation"
+import { getAccessToken } from "@/lib/supabase/client"
+import { getApiUrl } from "@/lib/utils"
 
 
 
@@ -48,6 +51,31 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { courseId } = useParams<{ courseId?: string; threadId?: string}>()
 
   const { courses, user, isLoading, error } = useSidebar();
+  const [isInstructor, setIsInstructor] = React.useState(false);
+
+  React.useEffect(() => {
+    async function checkInstructorRole() {
+      try {
+        const token = await getAccessToken()
+        const res = await fetch(`${getApiUrl()}/users/role`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (res.ok) {
+          const role = await res.json()
+          setIsInstructor(role === "instructor")
+        }
+      } catch (error) {
+        // Silently fail - user is not instructor
+        setIsInstructor(false)
+      }
+    }
+
+    checkInstructorRole()
+  }, [])
 
   const navMain = React.useMemo(() => {
     return courses.map((c) => ({
@@ -58,6 +86,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       items: c.items,
     }));
   }, [courses, courseId]);
+
+  const navSecondaryItems = React.useMemo(() => {
+    if (isInstructor && courseId) {
+      return [
+        { title: "Instructor View", url: `/instructor/${courseId}`, icon: GraduationCap },
+      ]
+    }
+    return [
+      { title: "Add Course", url: "#", icon: PlusCircle },
+    ]
+  }, [isInstructor, courseId]);
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -93,9 +132,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
         {!isLoading && !error && <NavMain items={navMain} />}
         {/* <NavProjects projects={data.projects} /> */}
-        <NavSecondary items={[
-          {title: "Add Course", url: "#", icon: PlusCircle,},
-        ]} className="mt-auto" />
+        <NavSecondary items={navSecondaryItems} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         {user && <NavUser user={user}/>}

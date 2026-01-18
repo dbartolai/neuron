@@ -1,6 +1,6 @@
 "use client"
 
-import { cn, getFrontendUrl } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -41,13 +41,13 @@ export default function Page({}: React.ComponentProps<"div">) {
     console.log("signup data:", data)
     console.log("signup error:", error)
 
-    router.push(`${getFrontendUrl()}/`);
+    router.push("/router");
   }
 
-  const magicLink = async () => {
-    console.log("Magic Link");
+  // const magicLink = async () => {
+  //   console.log("Magic Link");
 
-  }
+  // }
 
   return (
 
@@ -95,9 +95,9 @@ export default function Page({}: React.ComponentProps<"div">) {
               </Field>
               <Field>
                 <Button type="submit">Login</Button>
-                <Button variant="outline" type="button" onClick={magicLink}>
+                {/* <Button variant="outline" type="button" onClick={magicLink}>
                   Magic Link
-                </Button>
+                </Button> */}
                 <FieldDescription className="text-center">
                   Don&apos;t have an account? <a href="signup">Sign up</a>
                 </FieldDescription>

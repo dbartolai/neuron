@@ -53,7 +53,7 @@ export default function Page() {
     console.log("signup error:", error)
 
     if (error == null) {
-      router.push("/chat")
+      router.push("/router")
     }
 
   }
@@ -128,9 +128,9 @@ export default function Page() {
                 >
                   Create Account
                 </Button>
-                <Button variant="outline" type="button">
+                {/* <Button variant="outline" type="button">
                   Sign up with Google (coming soon)
-                </Button>
+                </Button> */}
                 <FieldDescription className="px-6 text-center">
                   Already have an account? <a href="login">Sign in</a>
                 </FieldDescription>
