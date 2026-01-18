@@ -120,8 +120,8 @@ export default function NeuronLandingPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Logo mark placeholder */}
-            <div className="h-9 w-9 rounded-xl bg-primary shadow-sm grid place-items-center">
-              <div className="h-3 w-3 rounded-sm bg-primary-foreground" />
+            <div className="h-9 w-9 rounded-xl  grid place-items-center">
+              <img src="/c.png" alt="neuron" className="h-9 w-9 rounded-xl" />
             </div>
             <div className="leading-tight">
               <div className="text-sm font-medium">neuron</div>

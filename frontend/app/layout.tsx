@@ -4,6 +4,7 @@ import "./globals.css";import { ThemeProvider } from "@/components/theme-provide
 import { AuthListener } from "@/components/auth/auth-listener";
 import "highlight.js/styles/github.css"
 import { Source_Serif_4 } from "next/font/google";
+import Head from "next/head";
 
 const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
@@ -37,6 +38,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <Head>
+        <link rel="icon" href="/favicon.png" />
+      </Head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} antialiased min-h-screen overflow-x-hidden`}
       >
