@@ -11,6 +11,7 @@ from app.schemas.user import User
 from app.services.chat_service import ChatService
 from app.services.log_service import LogService
 from app.services.thread_service import ThreadService
+from app.services.enroll_service import EnrollService
 from uuid import UUID
 import asyncpg
 import json
@@ -38,6 +39,12 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
         raise HTTPException(status_code=404, detail="thread not found")
     thread_type: ThreadType = meta_row["thread_type"]
     course_id: UUID = meta_row["course_id"]
+
+    # Verify thread belongs to user and user is enrolled in course
+    if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this thread")
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
 
     levels_query = """
         SELECT writing_level, testing_level, debugging_level
@@ -152,6 +159,12 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
         raise HTTPException(status_code=404, detail="thread not found")
     thread_type: Optional[ThreadType] = meta_row["thread_type"]
     course_id: UUID = meta_row["course_id"]
+
+    # Verify thread belongs to user and user is enrolled in course
+    if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this thread")
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
 
     levels_query = """
         SELECT writing_level, testing_level, debugging_level
@@ -277,6 +290,13 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
 @router.get(path="/{thread_id}")
 async def chat_history(thread_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> List[ChatResponse]:
 
+    # Get course_id from thread and verify access
+    course_id = await ThreadService.get_thread_course_id(db, thread_id)
+    if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this thread")
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
+
     # fetch message logs from db
     logs: List[MessageLog] = await LogService.get_messages_from_thread(db, thread_id)
     
@@ -293,5 +313,12 @@ async def chat_history(thread_id: UUID, db = Depends(get_db), user: User = Depen
 
 @router.get(path="/{thread_id}/name")
 async def get_thread_name_by_id(thread_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> str:
+
+    # Get course_id from thread and verify access
+    course_id = await ThreadService.get_thread_course_id(db, thread_id)
+    if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this thread")
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
 
     return await ThreadService.get_thread_name_by_id(db, thread_id)

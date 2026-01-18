@@ -36,15 +36,27 @@ async def create_course(body: NewCourse, db = Depends(get_db), user: User = Depe
 @router.patch(path="/courses")
 async def patch_course(body: PatchCourse, db = Depends(get_db), user: User = Depends(me)):
 
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, body.id, user["id"]):
+        raise HTTPException(401, "Not authorized to view this course")
+
     return await CourseService.update_course(db, body, user["id"])
 
 @router.get(path="/courses/{course_id}/enrollment")
 async def get_enrolled_students(course_id: UUID, db = Depends(get_db), user: User = Depends(me)):
     
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to view this course")
+    
     return await CourseService.get_enrollment(db, course_id)
 
 @router.get(path="/courses/{course_id}/enrollment/preview")
 async def get_enrolled_students(course_id: UUID, db = Depends(get_db), user: User = Depends(me)):
+    
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to view this course")
     
     return await CourseService.get_enrollment_preview(db, course_id)
 

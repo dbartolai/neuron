@@ -341,8 +341,8 @@ export default function CoursePage() {
             </Breadcrumb>
           </div>
         </header>
-        <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 pt-0 overflow-x-hidden">
-          <div className="flex w-full max-w-3xl mx-auto flex-1 min-h-0 flex-col gap-4 overflow-y-auto overscroll-none">
+        <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 pt-0 overflow-x-hidden w-full  chat-scroll">
+          <div className="flex w-full  mx-auto flex-1 min-h-0 flex-col gap-4  overflow-y-auto  ">
             {showWelcome ? (
               <ChatWelcome 
                 courseName={courseName}

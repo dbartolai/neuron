@@ -9,6 +9,7 @@ from app.services.chat_service import ChatService
 from app.services.course_service import CourseService
 from app.services.log_service import LogService
 from app.services.prompt_service import PromptService
+from app.services.enroll_service import EnrollService
 from app.dependencies.levels import GLOBAL_INVARIANTS
 from app.schemas.user import User
 from app.schemas.course import CoursePolicy
@@ -29,6 +30,10 @@ async def get_course_access(course_id: UUID, db = Depends(get_db), user: User = 
 
 @router.post(path="/{course_id}/thread", response_model=CreateThreadResponse, status_code=201)
 async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depends(get_db), user: User = Depends(me)) -> Optional[UUID]:
+    
+    # Verify student enrollment
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
     
     # Fetch course levels from database
     levels_query = """
@@ -142,6 +147,10 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
     - error: {message: string} - If an error occurs
     - done: {} - When streaming is complete
     """
+    
+    # Verify student enrollment
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
     
     # Fetch course levels from database
     levels_query = """
@@ -275,16 +284,28 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
 @router.get(path="/{course_id}/threads", response_model=List[GetThreadResponse])
 async def get_course_threads(course_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> List[UUID]:
 
+    # Verify student enrollment
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
+
     return await ThreadService.get_thread_ids_by_course(db, course_id, user["id"])
 
 
 @router.get(path="/{course_id}/name")
 async def get_course_name(course_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> str:
 
+    # Verify student enrollment
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
+
     return await CourseService.get_course_name_by_id(db, course_id)
 
 @router.get(path="/{course_id}/policy")
 async def get_course_policy(course_id: UUID, db = Depends(get_db), user: User = Depends(me)) -> CoursePolicy:
+
+    # Verify student enrollment
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
 
     return await CourseService.get_course_policy(db, course_id)
 

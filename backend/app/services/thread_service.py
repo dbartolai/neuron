@@ -4,6 +4,7 @@
 # Write chats back to the db, gather context, delete/revise individual messages
 
 import asyncpg
+from asyncpg.exceptions import UniqueViolationError
 from typing import Optional, List
 from uuid import UUID
 from app.schemas.thread import GetThreadResponse, ThreadType
@@ -95,9 +96,23 @@ class ThreadService:
             RETURNING id
         """
 
-        row = await db.fetchrow(query, course_id, user_id, thread_name, thread_type)
-
-        return row["id"]
+        max_retries = 10
+        current_title = thread_name
+        
+        for attempt in range(max_retries):
+            try:
+                row = await db.fetchrow(query, course_id, user_id, current_title, thread_type)
+                return row["id"]
+            except UniqueViolationError:
+                # Title already exists for this user, try with a suffix
+                if attempt < max_retries - 1:
+                    current_title = f"{thread_name} ({attempt + 2})"
+                else:
+                    # All retries exhausted
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Unable to create thread with unique title after {max_retries} attempts"
+                    )
     
     @staticmethod
     async def get_thread_name_by_id(db: asyncpg.Connection, thread_id: UUID) -> str:
@@ -181,6 +196,32 @@ class ThreadService:
         """
         rows = await db.fetch(query, course_id, tag)
         return [dict(row) for row in rows]
+
+    @staticmethod
+    async def verify_thread_belongs_to_user(db: asyncpg.Connection, thread_id: UUID, user_id: UUID) -> bool:
+        """Verify that a thread belongs to a specific user."""
+        query = """
+            SELECT user_id
+            FROM threads
+            WHERE id = $1
+        """
+        thread_user_id: UUID = await db.fetchval(query, thread_id)
+        if thread_user_id is None:
+            return False
+        return str(thread_user_id) == str(user_id)
+    
+    @staticmethod
+    async def get_thread_course_id(db: asyncpg.Connection, thread_id: UUID) -> UUID:
+        """Get the course_id for a thread. Raises HTTPException(404) if thread not found."""
+        query = """
+            SELECT course_id
+            FROM threads
+            WHERE id = $1
+        """
+        course_id: UUID = await db.fetchval(query, thread_id)
+        if course_id is None:
+            raise HTTPException(status_code=404, detail="thread not found")
+        return course_id
 
 
 

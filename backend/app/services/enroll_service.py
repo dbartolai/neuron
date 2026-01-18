@@ -18,3 +18,14 @@ class EnrollService:
         except asyncpg.UniqueViolationError:
             raise HTTPException(status_code=409, detail="Already enrolled")
 
+    @staticmethod
+    async def verify_student_enrollment(db: asyncpg.Connection, course_id: UUID, user_id: UUID) -> bool:
+        """Verify that a student is enrolled in a course."""
+        query = """
+            SELECT student_id
+            FROM enrollment
+            WHERE course_id = $1 AND student_id = $2
+        """
+        student_id: UUID = await db.fetchval(query, course_id, user_id)
+        return student_id is not None
+

@@ -26,7 +26,7 @@ export default function MessageLog( {messages, isStreaming = false, streamingCon
     }, [messages, streamingContent, isStreaming]);
 
     return (
-        <div className="chat-scroll">
+        <div className="chat-scroll max-w-3xl mx-auto">
         {messages.map((message: ChatMessage, index: number) => {
             
             if (message.role === ChatRole.STUDENT){
