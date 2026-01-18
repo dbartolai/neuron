@@ -33,6 +33,50 @@ export default function AssistantMessage({ content, isStreaming = false }: Assis
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeHighlight]}
           components={{
+            // Headers with proper sizing
+            h1: ({ node, ...props }) => (
+              <h1 className="text-3xl font-bold mt-6 mb-4 text-foreground" {...props} />
+            ),
+            h2: ({ node, ...props }) => (
+              <h2 className="text-2xl font-semibold mt-5 mb-3 text-foreground" {...props} />
+            ),
+            h3: ({ node, ...props }) => (
+              <h3 className="text-xl font-semibold mt-4 mb-2 text-foreground" {...props} />
+            ),
+            h4: ({ node, ...props }) => (
+              <h4 className="text-lg font-semibold mt-3 mb-2 text-foreground" {...props} />
+            ),
+            h5: ({ node, ...props }) => (
+              <h5 className="text-base font-semibold mt-3 mb-1 text-foreground" {...props} />
+            ),
+            h6: ({ node, ...props }) => (
+              <h6 className="text-sm font-semibold mt-2 mb-1 text-foreground" {...props} />
+            ),
+            // Horizontal rule with proper spacing
+            hr: ({ node, ...props }) => (
+              <hr className="my-6 border-border" {...props} />
+            ),
+            // Table elements
+            table: ({ node, ...props }) => (
+              <div className="overflow-x-auto my-4">
+                <table className="min-w-full border-collapse border border-border" {...props} />
+              </div>
+            ),
+            thead: ({ node, ...props }) => (
+              <thead className="bg-muted" {...props} />
+            ),
+            tbody: ({ node, ...props }) => (
+              <tbody {...props} />
+            ),
+            tr: ({ node, ...props }) => (
+              <tr className="border-b border-border" {...props} />
+            ),
+            th: ({ node, ...props }) => (
+              <th className="border border-border px-4 py-2 text-left font-semibold text-foreground" {...props} />
+            ),
+            td: ({ node, ...props }) => (
+              <td className="border border-border px-4 py-2 text-foreground" {...props} />
+            ),
             // Override the <pre> tag to style the code block container
             pre: ({ node, ...props }) => (
               <div className="overflow-auto w-full my-2 bg-card rounded-lg p-4 border border-border/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),inset_0_2px_4px_rgba(0,0,0,0.04)]">
