@@ -329,9 +329,9 @@ function StudentDetailPageContent() {
           <Button variant="ghost" size="icon" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
+          <div className="flex-col items-center justify-center w-full h-full">
             {loading ? (
-              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-8 w-48 justify-center items-center " />
             ) : error ? (
               <H1 text="Error" />
             ) : (

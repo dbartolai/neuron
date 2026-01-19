@@ -1,17 +1,34 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Copy, Check } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 
 type UserMessageProps = {
   content: string
+  isEditing?: boolean
+  onEditSubmit?: (editedContent: string) => void
+  onEditCancel?: () => void
 }
 
-export default function UserMessage({ content }: UserMessageProps) {
+export default function UserMessage({ 
+  content, 
+  isEditing = false,
+  onEditSubmit,
+  onEditCancel
+}: UserMessageProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [editedContent, setEditedContent] = useState(content)
+
+  // Update editedContent when content changes (but not while editing)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedContent(content)
+    }
+  }, [content, isEditing])
 
   const handleCopy = async () => {
     try {
@@ -22,6 +39,63 @@ export default function UserMessage({ content }: UserMessageProps) {
     } catch (err) {
       toast.error("Failed to copy message")
     }
+  }
+
+  const handleSubmit = () => {
+    if (editedContent.trim() && onEditSubmit) {
+      onEditSubmit(editedContent.trim())
+    }
+  }
+
+  const handleCancel = () => {
+    setEditedContent(content)
+    if (onEditCancel) {
+      onEditCancel()
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div className="flex justify-end my-4">
+        <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%] w-full">
+          <Textarea
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                handleSubmit()
+              } else if (e.key === "Escape") {
+                handleCancel()
+              }
+            }}
+            className="bg-transparent border-none text-primary-foreground resize-none focus-visible:ring-0 focus-visible:ring-offset-0 p-0 min-h-[60px] whitespace-pre-wrap"
+            placeholder="Edit your message..."
+            autoFocus
+            rows={3}
+          />
+          <div className="flex justify-end gap-2 mt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="h-7 text-xs text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSubmit}
+              disabled={!editedContent.trim()}
+              className="h-7 text-xs text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              Send
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

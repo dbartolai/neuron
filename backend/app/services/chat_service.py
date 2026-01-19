@@ -372,7 +372,7 @@ class ChatService:
             Create and return an appropriate title for the conversation and nothing else.
             Ensure the title is 20 characters or less. \n\n
         """
-        model = "gpt-5.1"
+        model = "gpt-5-nano"
         response = client.responses.create(
             model=model,
             input=(get_title_input + message),

@@ -27,9 +27,12 @@ class ChatFeedbackRequest(BaseModel):
     chat_id: UUID
     thumbs_up: Optional[bool] = None
     thumbs_down: Optional[bool] = None
-    feedback: Optional[str] = None
+    feedback_ceria: Optional[str] = None
+    feedback_instructor: Optional[str] = None
+    type: Optional[ChatRole] = ChatRole.assistant
 
 class ChatFeedbackResponse(BaseModel):
     thumbs_up: bool
     thumbs_down: bool
-    feedback: Optional[str] = None
+    feedback_ceria: Optional[str] = None
+    feedback_instructor: Optional[str] = None

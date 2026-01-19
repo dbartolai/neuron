@@ -1,7 +1,7 @@
 "use client"
 
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ChatMessage } from "@/hooks/use-chat"
 import {ChatRole} from "@/hooks/use-chat"
 import UserMessage from "@/components/chat/user-message"
@@ -28,6 +28,9 @@ export default function MessageLog( {
     showFeedback = true
 }: MessageLogProps ) {
     
+    // Track which user message is being edited (by message index)
+    const [editingUserMessageIndex, setEditingUserMessageIndex] = useState<number | null>(null)
+    
     // Auto-scroll to bottom when new messages arrive or streaming content updates
     const bottomRef = useRef<HTMLDivElement>(null);
     
@@ -45,6 +48,22 @@ export default function MessageLog( {
         return null
     }
 
+    // Find the last user message index before a given system message index
+    const findLastUserMessageIndexForSystem = (systemIndex: number): number | null => {
+        for (let i = systemIndex - 1; i >= 0; i--) {
+            if (messages[i].role === ChatRole.STUDENT) {
+                return i
+            }
+        }
+        return null
+    }
+
+    // Find the last user message before a given system message index
+    const findLastUserMessageForSystem = (systemIndex: number): string | null => {
+        const index = findLastUserMessageIndexForSystem(systemIndex)
+        return index !== null ? messages[index].content : null
+    }
+
     // Handle try again - resend the last user message
     const handleTryAgain = (assistantIndex: number) => {
         if (!sendMessage) return
@@ -55,6 +74,26 @@ export default function MessageLog( {
         }
     }
 
+    // Handle start editing user message from system message
+    const handleStartEditUserMessage = (systemIndex: number) => {
+        const userMessageIndex = findLastUserMessageIndexForSystem(systemIndex)
+        if (userMessageIndex !== null) {
+            setEditingUserMessageIndex(userMessageIndex)
+        }
+    }
+
+    // Handle edit and resend for user messages
+    const handleEditAndResend = (editedMessage: string) => {
+        if (!sendMessage) return
+        setEditingUserMessageIndex(null)
+        sendMessage(editedMessage)
+    }
+
+    // Handle cancel editing
+    const handleCancelEdit = () => {
+        setEditingUserMessageIndex(null)
+    }
+
     return (
         <div className="chat-scroll max-w-3xl mx-auto">
         {messages.map((message: ChatMessage, index: number) => {
@@ -63,6 +102,9 @@ export default function MessageLog( {
                 return (
                     <UserMessage
                         content={message.content}
+                        isEditing={editingUserMessageIndex === index}
+                        onEditSubmit={handleEditAndResend}
+                        onEditCancel={handleCancelEdit}
                         key={message.id || index}
                     />
                 )
@@ -81,6 +123,10 @@ export default function MessageLog( {
                 return (
                     <SystemMessage
                         content={message.content}
+                        chatId={message.id}
+                        showFeedback={showFeedback}
+                        lastUserMessage={findLastUserMessageForSystem(index)}
+                        onStartEdit={() => handleStartEditUserMessage(index)}
                         key={message.id || index}
                     />
                 )

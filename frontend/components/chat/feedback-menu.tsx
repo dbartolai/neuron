@@ -7,12 +7,14 @@ import { toast } from "sonner"
 import { getAccessToken } from "@/lib/supabase/client"
 import { getApiUrl } from "@/lib/utils"
 import FeedbackDialog from "./feedback-dialog"
+import { ChatRole } from "@/hooks/use-chat"
 
 type FeedbackMenuProps = {
   chatId: string
   content: string
   onTryAgain?: () => void
   onFeedbackSubmit?: () => void
+  type?: ChatRole
 }
 
 interface FeedbackData {
@@ -21,7 +23,7 @@ interface FeedbackData {
   feedback: string | null
 }
 
-export default function FeedbackMenu({ chatId, content, onTryAgain, onFeedbackSubmit }: FeedbackMenuProps) {
+export default function FeedbackMenu({ chatId, content, onTryAgain, onFeedbackSubmit, type = ChatRole.ASSISTANT }: FeedbackMenuProps) {
   const [thumbsUp, setThumbsUp] = useState(false)
   const [thumbsDown, setThumbsDown] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -78,6 +80,7 @@ export default function FeedbackMenu({ chatId, content, onTryAgain, onFeedbackSu
           chat_id: chatId,
           thumbs_up: newValue,
           thumbs_down: false,
+          type: type,
         }),
       })
 
@@ -112,6 +115,7 @@ export default function FeedbackMenu({ chatId, content, onTryAgain, onFeedbackSu
           chat_id: chatId,
           thumbs_up: false,
           thumbs_down: newValue,
+          type: type,
         }),
       })
 
@@ -206,6 +210,7 @@ export default function FeedbackMenu({ chatId, content, onTryAgain, onFeedbackSu
           open={feedbackDialogOpen}
           onOpenChange={setFeedbackDialogOpen}
           onFeedbackSubmit={onFeedbackSubmit}
+          type={type}
         />
       )}
     </>

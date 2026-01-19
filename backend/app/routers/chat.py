@@ -440,13 +440,18 @@ async def submit_feedback(
         raise HTTPException(401, "Not authorized to access this course")
     
     # Submit feedback
-    await FeedbackService.submit_feedback(
-        db,
-        body.chat_id,
-        body.thumbs_up,
-        body.thumbs_down,
-        body.feedback
-    )
+    try:
+        await FeedbackService.submit_feedback(
+            db,
+            body.chat_id,
+            body.thumbs_up,
+            body.thumbs_down,
+            body.feedback_ceria,
+            body.feedback_instructor,
+            body.type
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     return {"success": True}
 
@@ -474,10 +479,11 @@ async def get_feedback(
     feedback = await FeedbackService.get_feedback(db, chat_id)
     
     if feedback is None:
-        return ChatFeedbackResponse(thumbs_up=False, thumbs_down=False, feedback=None)
+        return ChatFeedbackResponse(thumbs_up=False, thumbs_down=False, feedback_ceria=None, feedback_instructor=None)
     
     return ChatFeedbackResponse(
         thumbs_up=feedback["thumbs_up"],
         thumbs_down=feedback["thumbs_down"],
-        feedback=feedback["feedback"]
+        feedback_ceria=feedback["feedback_ceria"],
+        feedback_instructor=feedback["feedback_instructor"]
     )

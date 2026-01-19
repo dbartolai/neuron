@@ -90,7 +90,7 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
             f"Your prompt did not pass the current course rules. Please revise and try again.\n"
             f"Violations: {reasons}"
         )
-        await LogService.insert_message(db, thread_id, ChatRole.assistant, system_msg)
+        await LogService.insert_message(db, thread_id, ChatRole.system, system_msg)
         # Update thread summary after assistant message
         await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
         return {"id": thread_id}
@@ -225,8 +225,14 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
 
     level = PromptService.get_level(thread_type, level_idx)
 
-    # Handle title creation
-    new_title: str = await ChatService.create_title(body.first_message)
+    user_id = UUID(user["id"])
+
+    # Handle title creation (before thread is created, so no thread_id yet)
+    new_title: str = await ChatService.create_title(
+        body.first_message,
+        db=db,
+        user_id=user_id,
+    )
 
     # Create new thread with title
     thread_id = await ThreadService.create_thread_in_course(
@@ -243,7 +249,13 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
     user_id = UUID(user["id"])
 
     # Stage 1: Student rules evaluation
-    passed, details = await ChatService.evaluate_student_rules(body.first_message, level.get("student_rules", []))
+    passed, details = await ChatService.evaluate_student_rules(
+        body.first_message,
+        level.get("student_rules", []),
+        db=db,
+        user_id=user_id,
+        thread_id=thread_id,
+    )
 
     # Store context for the generator
     stream_context = {
