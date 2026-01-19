@@ -69,7 +69,7 @@ export function EditOutreachDialog({
 
     try {
       await updateOutreach(outreach.id, {
-        name: name || null,
+        name: name || undefined,
         email,
         phone: phone || null,
         notes: notes || null,
