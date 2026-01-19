@@ -84,8 +84,8 @@ export function EditTimeslotDialog({
     try {
       await updateTimeslot(timeslot.id, {
         timeslot: newDateTime.toISOString(),
-        name: name || null,
-        email: email || null,
+        name: name || undefined,
+        email: email || undefined,
         notes: notes || null,
         purpose: purpose || null,
       })
