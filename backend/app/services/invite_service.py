@@ -171,5 +171,51 @@ class InviteService:
             for row in rows
         ]
 
+    @staticmethod
+    async def revoke_invite(db: asyncpg.Connection, invite_id: UUID, admin_id: UUID) -> bool:
+        """
+        Revoke an invite by setting revoked_at timestamp.
+        Also logs the action in admin_logs.
+        """
+        # Check if invite exists and get email for logging
+        check_query = """
+            SELECT id, email, revoked_at, accepted_at
+            FROM instructor_invites
+            WHERE id = $1
+        """
+        row = await db.fetchrow(check_query, invite_id)
+        
+        if row is None:
+            raise HTTPException(status_code=404, detail="Invite not found")
+        
+        if row["revoked_at"] is not None:
+            raise HTTPException(status_code=400, detail="Invite is already revoked")
+        
+        if row["accepted_at"] is not None:
+            raise HTTPException(status_code=400, detail="Cannot revoke an already accepted invite")
+        
+        # Revoke the invite
+        revoke_query = """
+            UPDATE instructor_invites
+            SET revoked_at = now()
+            WHERE id = $1
+            RETURNING id
+        """
+        
+        revoked_row = await db.fetchrow(revoke_query, invite_id)
+        
+        if revoked_row is None:
+            raise HTTPException(status_code=500, detail="Failed to revoke invite")
+        
+        # Log the action
+        log_query = """
+            INSERT INTO admin_logs (action, admin, target_email, admin_notes)
+            VALUES ($1, $2, $3, $4)
+        """
+        
+        await db.execute(log_query, "revoked invite", admin_id, row["email"], f"Revoked invite for {row['email']}")
+        
+        return True
+
     
 

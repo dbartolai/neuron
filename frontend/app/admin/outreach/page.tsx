@@ -18,9 +18,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { ArrowUp, ArrowDown, Plus } from "lucide-react"
+import { ArrowUp, ArrowDown, Plus, Edit2, Trash2, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AddOutreachDialog } from "@/components/admin/add-outreach-dialog"
+import { EditOutreachDialog } from "@/components/admin/edit-outreach-dialog"
+import { InteractionLogDialog } from "@/components/admin/interaction-log-dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 
 function formatDate(dateString: string | null): string {
   if (!dateString) return "-"
@@ -86,10 +89,17 @@ function sortOutreach(
 }
 
 export default function AdminOutreachPage() {
-  const { outreach, isLoading, error, refetch } = useAdmin()
+  const { outreach, isLoading, error, refetch, deleteOutreach, batchDeleteOutreach } = useAdmin()
   const [sortColumn, setSortColumn] = React.useState<SortColumn>("created_at")
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc")
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
+  const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
+  const [editingOutreach, setEditingOutreach] = React.useState<number | null>(null)
+  const [interactionOutreach, setInteractionOutreach] = React.useState<{
+    id: number
+    name: string
+    email: string
+  } | null>(null)
 
   const sortedOutreach = React.useMemo(() => {
     return sortOutreach(outreach, sortColumn, sortDirection)
@@ -108,6 +118,61 @@ export default function AdminOutreachPage() {
     void refetch()
   }, [refetch])
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(sortedOutreach.map((item) => item.id)))
+    } else {
+      setSelectedIds(new Set())
+    }
+  }
+
+  const handleSelectOne = (id: number, checked: boolean) => {
+    const newSelected = new Set(selectedIds)
+    if (checked) {
+      newSelected.add(id)
+    } else {
+      newSelected.delete(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this outreach entry?")) {
+      return
+    }
+    try {
+      await deleteOutreach(id)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    } catch (e) {
+      console.error("Failed to delete:", e)
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`Are you sure you want to delete ${selectedIds.size} outreach entries?`)) {
+      return
+    }
+    try {
+      await batchDeleteOutreach(Array.from(selectedIds))
+      setSelectedIds(new Set())
+    } catch (e) {
+      console.error("Failed to batch delete:", e)
+    }
+  }
+
+  const handleRowClick = (item: typeof sortedOutreach[0]) => {
+    setInteractionOutreach({
+      id: item.id,
+      name: item.name || "",
+      email: item.email,
+    })
+  }
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
@@ -122,6 +187,18 @@ export default function AdminOutreachPage() {
           Add Person
         </Button>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+          <span className="text-sm font-medium">
+            {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""} selected
+          </span>
+          <Button variant="destructive" size="sm" onClick={handleBatchDelete}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Selected
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -153,6 +230,12 @@ export default function AdminOutreachPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={selectedIds.size === sortedOutreach.length && sortedOutreach.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>
                     <button
                       onClick={() => handleSort("name")}
@@ -211,11 +294,22 @@ export default function AdminOutreachPage() {
                   </TableHead>
                   <TableHead>Purpose</TableHead>
                   <TableHead>Notes</TableHead>
+                  <TableHead className="w-[150px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedOutreach.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow
+                    key={item.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleRowClick(item)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(item.id)}
+                        onCheckedChange={(checked) => handleSelectOne(item.id, checked as boolean)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {item.name || "-"}
                     </TableCell>
@@ -238,6 +332,31 @@ export default function AdminOutreachPage() {
                     <TableCell className="max-w-xs truncate">
                       {item.notes || "-"}
                     </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingOutreach(item.id)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRowClick(item)}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -254,6 +373,32 @@ export default function AdminOutreachPage() {
           setAddDialogOpen(false)
         }}
       />
+
+      {editingOutreach !== null && (
+        <EditOutreachDialog
+          open={editingOutreach !== null}
+          onOpenChange={(open) => {
+            if (!open) setEditingOutreach(null)
+          }}
+          outreach={outreach.find((o) => o.id === editingOutreach)!}
+          onSuccess={() => {
+            // State updated optimistically, no refetch needed
+            setEditingOutreach(null)
+          }}
+        />
+      )}
+
+      {interactionOutreach && (
+        <InteractionLogDialog
+          open={interactionOutreach !== null}
+          onOpenChange={(open) => {
+            if (!open) setInteractionOutreach(null)
+          }}
+          outreachId={interactionOutreach.id}
+          outreachName={interactionOutreach.name}
+          outreachEmail={interactionOutreach.email}
+        />
+      )}
     </div>
   )
 }

@@ -36,7 +36,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { PlusCircle, ArrowUp, ArrowDown } from "lucide-react"
+import { PlusCircle, ArrowUp, ArrowDown, XCircle, Trash2 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type InviteStatus = "pending" | "accepted" | "expired" | "revoked"
 
@@ -150,11 +151,12 @@ function sortInvites(
 }
 
 export default function AdminInvitesPage() {
-  const { invites, isLoading, error, sendInvite, refetch } = useAdmin()
+  const { invites, isLoading, error, sendInvite, revokeInvite, refetch } = useAdmin()
   const [isSending, setIsSending] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [sortColumn, setSortColumn] = React.useState<SortColumn>("created_at")
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc")
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [formData, setFormData] = React.useState({
     name: "",
     email: "",
@@ -188,6 +190,64 @@ export default function AdminInvitesPage() {
     }
   }
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(sortedInvites.map((invite) => invite.id)))
+    } else {
+      setSelectedIds(new Set())
+    }
+  }
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds)
+    if (checked) {
+      newSelected.add(id)
+    } else {
+      newSelected.delete(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  const handleRevoke = async (id: string) => {
+    if (!confirm("Are you sure you want to revoke this invite?")) {
+      return
+    }
+    try {
+      await revokeInvite(id)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    } catch (e) {
+      console.error("Failed to revoke:", e)
+    }
+  }
+
+  const handleBatchRevoke = async () => {
+    const revokableInvites = sortedInvites.filter(
+      (invite) =>
+        selectedIds.has(invite.id) &&
+        getInviteStatus(invite) === "pending"
+    )
+    
+    if (revokableInvites.length === 0) {
+      alert("No pending invites selected to revoke")
+      return
+    }
+
+    if (!confirm(`Are you sure you want to revoke ${revokableInvites.length} invite(s)?`)) {
+      return
+    }
+
+    try {
+      await Promise.all(revokableInvites.map((invite) => revokeInvite(invite.id)))
+      setSelectedIds(new Set())
+    } catch (e) {
+      console.error("Failed to batch revoke:", e)
+    }
+  }
+
   return (
     <>
     <div className="flex flex-col gap-6 p-6">
@@ -199,6 +259,18 @@ export default function AdminInvitesPage() {
           </p>
         </div>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+          <span className="text-sm font-medium">
+            {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""} selected
+          </span>
+          <Button variant="destructive" size="sm" onClick={handleBatchRevoke}>
+            <XCircle className="mr-2 h-4 w-4" />
+            Revoke Selected
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -294,6 +366,12 @@ export default function AdminInvitesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={selectedIds.size === sortedInvites.length && sortedInvites.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>
                     <button
                       onClick={() => handleSort("name")}
@@ -392,13 +470,21 @@ export default function AdminInvitesPage() {
                         ))}
                     </button>
                   </TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedInvites.map((invite) => {
                   const status = getInviteStatus(invite)
+                  const canRevoke = status === "pending"
                   return (
                     <TableRow key={invite.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(invite.id)}
+                          onCheckedChange={(checked) => handleSelectOne(invite.id, checked as boolean)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
                         {invite.name}
                       </TableCell>
@@ -413,6 +499,17 @@ export default function AdminInvitesPage() {
                       <TableCell>{formatDate(invite.accepted_at)}</TableCell>
                       <TableCell className="max-w-xs truncate">
                         {invite.note || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {canRevoke && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRevoke(invite.id)}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   )
