@@ -5,11 +5,15 @@ from app.dependencies.client import supabase
 from app.schemas.user import User, InstructorActivate, ProfileRole
 from uuid import UUID
 from typing import List, Optional, Annotated, Dict
+from datetime import datetime, timezone
 from app.services.course_service import CourseService
 from app.services.user_service import UserService
 from app.services.enroll_service import EnrollService
 from app.services.thread_service import ThreadService
 from app.services.insights_service import InsightsService
+from app.services.ai_events_service import AIEventsService
+from app.services.chat_service import ChatService
+from app.services.insights_student_service import InsightsStudentService
 from app.schemas.course import NewCourse, PatchCourse, CourseFileRequest, CourseFile
 from app.schemas.insights import InsightsStatus, TagStatistics, UpdateTagsRequest, UpdateThreadTagRequest
 from openai import OpenAI
@@ -399,6 +403,151 @@ async def update_thread_tag(
     
     await ThreadService.update_thread_tag(db, thread_id, body.tag)
     return {"thread_id": str(thread_id), "tag": body.tag}
+
+@router.get(path="/courses/{course_id}/students/{student_id}/usage")
+async def get_student_token_usage(
+    course_id: UUID,
+    student_id: UUID,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Get token usage for a specific student in a course, grouped by model."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    # Get all thread IDs for this student in this course
+    thread_ids = await ThreadService.get_thread_ids_by_course(db, course_id, student_id)
+    
+    # Get token usage grouped by model
+    usage = await AIEventsService.get_token_usage_by_model(db, student_id, thread_ids)
+    
+    return usage
+
+@router.get(path="/courses/{course_id}/students/{student_id}/threads")
+async def get_student_threads(
+    course_id: UUID,
+    student_id: UUID,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Get threads for a specific student in a course with AI-generated summaries."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    instructor_id = UUID(user["id"])
+    
+    # Get threads with summaries
+    threads = await ThreadService.get_student_threads_with_summaries(
+        db, course_id, student_id, instructor_id
+    )
+    
+    return threads
+
+@router.get(path="/courses/{course_id}/students/{student_id}/insights")
+async def get_student_insights(
+    course_id: UUID,
+    student_id: UUID,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Get stored insights for a student, or return null if not generated yet."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    # Get insights_id from enrollment
+    insights_id = await InsightsStudentService.get_enrollment_insights_id(
+        db, course_id, student_id
+    )
+    
+    if not insights_id:
+        return {"insights": None, "can_refresh": False}
+    
+    # Get insights data
+    insights_data = await InsightsStudentService.get_insights_by_id(db, insights_id)
+    
+    if not insights_data:
+        return {"insights": None, "can_refresh": False}
+    
+    # Check if renewable_at has passed
+    renewable_at = insights_data.get("renewable_at")
+    can_refresh = True
+    if renewable_at:
+        # Handle datetime comparison - ensure both are timezone-aware
+        if isinstance(renewable_at, datetime):
+            renewable_time = renewable_at
+        else:
+            renewable_time = renewable_at
+        
+        # Ensure timezone-aware
+        if renewable_time.tzinfo is None:
+            renewable_time = renewable_time.replace(tzinfo=timezone.utc)
+        
+        now = datetime.now(timezone.utc)
+        can_refresh = now >= renewable_time
+    
+    return {
+        "insights": {
+            "summary": insights_data.get("summary", ""),
+            "renewable_at": str(renewable_at) if renewable_at else None,
+        },
+        "can_refresh": can_refresh,
+    }
+
+@router.post(path="/courses/{course_id}/students/{student_id}/insights/generate")
+async def generate_student_insights(
+    course_id: UUID,
+    student_id: UUID,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Generate or refresh insights for a student."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    instructor_id = UUID(user["id"])
+    
+    # Check if this is a refresh (insights already exist)
+    existing_insights_id = await InsightsStudentService.get_enrollment_insights_id(
+        db, course_id, student_id
+    )
+    is_refresh = existing_insights_id is not None
+    
+    # If refresh, check if renewable_at has passed
+    if is_refresh:
+        insights_data = await InsightsStudentService.get_insights_by_id(db, existing_insights_id)
+        if insights_data:
+            renewable_at = insights_data.get("renewable_at")
+            if renewable_at:
+                # Handle datetime comparison
+                renewable_time = renewable_at
+                if renewable_time.tzinfo is None:
+                    renewable_time = renewable_time.replace(tzinfo=timezone.utc)
+                
+                now = datetime.now(timezone.utc)
+                if now < renewable_time:
+                    raise HTTPException(400, detail="Insights can be refreshed once every 7 days")
+    
+    try:
+        # Generate and store insights
+        insights_data = await InsightsStudentService.generate_and_store_insights(
+            db, course_id, student_id, instructor_id, is_refresh=is_refresh
+        )
+        
+        return {
+            "insights": {
+                "summary": insights_data.get("summary", ""),
+                "renewable_at": str(insights_data.get("renewable_at")) if insights_data.get("renewable_at") else None,
+            },
+            "can_refresh": False,  # Just generated, so can't refresh yet
+        }
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to generate insights: {str(e)}")
 
         
 

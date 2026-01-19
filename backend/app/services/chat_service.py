@@ -82,6 +82,8 @@ class ChatService:
                     tokens_out=tokens_out,
                     tokens_total=tokens_total,
                     thread_id=thread_id,
+                    purpose="student_rules_check",
+                    response_id=getattr(response, 'id', None),
                 )
             except Exception as e:
                 print(f"Failed to log AI event for evaluate_student_rules: {str(e)}")
@@ -155,6 +157,8 @@ class ChatService:
                     tokens_total=tokens_total,
                     chat_id=chat_id,
                     thread_id=thread_id,
+                    purpose="student_chat",
+                    response_id=getattr(response, 'id', None),
                 )
             except Exception as e:
                 print(f"Failed to log AI event for chat_with_guardrails: {str(e)}")
@@ -203,6 +207,7 @@ class ChatService:
             response_stream = client.responses.create(**kwargs)
             
             final_usage = None
+            final_response_id = None
             for event in response_stream:
                 # Handle text delta events from the streaming response
                 if event.type == "response.output_text.delta":
@@ -213,11 +218,23 @@ class ChatService:
                         final_usage = event.usage
                     elif hasattr(event, 'response') and hasattr(event.response, 'usage') and event.response.usage is not None:
                         final_usage = event.response.usage
+                    # Try to get response_id from completed event
+                    if hasattr(event, 'response') and hasattr(event.response, 'id'):
+                        final_response_id = event.response.id
+                    elif hasattr(event, 'id'):
+                        final_response_id = event.id
                 # Legacy checks for other event types
                 elif hasattr(event, 'usage') and event.usage is not None:
                     final_usage = event.usage
                 elif hasattr(event, 'response') and hasattr(event.response, 'usage') and event.response.usage is not None:
                     final_usage = event.response.usage
+                
+                # Try to capture response_id from any event
+                if final_response_id is None:
+                    if hasattr(event, 'response') and hasattr(event.response, 'id'):
+                        final_response_id = event.response.id
+                    elif hasattr(event, 'id'):
+                        final_response_id = event.id
             
             # Store usage info if dict provided
             if usage_info is not None and final_usage is not None:
@@ -225,6 +242,8 @@ class ChatService:
                 usage_info['tokens_in'] = getattr(final_usage, 'input_tokens', None)
                 usage_info['tokens_out'] = getattr(final_usage, 'output_tokens', None)
                 usage_info['tokens_total'] = getattr(final_usage, 'total_tokens', None)
+                if final_response_id:
+                    usage_info['response_id'] = final_response_id
         except Exception as e:
             # Re-raise to be handled by the router
             raise Exception(f"OpenAI API error: {str(e)}") from e
@@ -283,6 +302,8 @@ class ChatService:
                     tokens_out=tokens_out,
                     tokens_total=tokens_total,
                     thread_id=thread_id,
+                    purpose="response_rules_check",
+                    response_id=getattr(response, 'id', None),
                 )
             except Exception as e:
                 print(f"Failed to log AI event for evaluate_response_rules: {str(e)}")
@@ -331,6 +352,8 @@ class ChatService:
                     tokens_in=tokens_in,
                     tokens_out=tokens_out,
                     tokens_total=tokens_total,
+                    purpose="general_chat",
+                    response_id=getattr(response, 'id', None),
                 )
             except Exception as e:
                 print(f"Failed to log AI event for send_message: {str(e)}")
@@ -372,6 +395,8 @@ class ChatService:
                     tokens_out=tokens_out,
                     tokens_total=tokens_total,
                     thread_id=thread_id,
+                    purpose="thread_name",
+                    response_id=getattr(response, 'id', None),
                 )
             except Exception as e:
                 print(f"Failed to log AI event for create_title: {str(e)}")
@@ -416,8 +441,107 @@ class ChatService:
                     tokens_out=tokens_out,
                     tokens_total=tokens_total,
                     thread_id=thread_id,
+                    purpose="summary",
+                    response_id=getattr(response, 'id', None),
                 )
             except Exception as e:
                 print(f"Failed to log AI event for summarize_context: {str(e)}")
         
         return response.output_text
+
+    @staticmethod
+    async def generate_thread_summary(
+        log: List[MessageLog],
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+        thread_id: Optional[UUID] = None,
+    ) -> str:
+        """Generate a 2-3 sentence summary focusing on student understanding and usage using gpt-5-nano."""
+        context_input = ""
+        for chat in log:
+            sender = chat.role
+            context_input += f"{sender}: {chat.message}\n"
+
+        model = "gpt-5-nano"
+        response = client.responses.create(
+            model=model,
+            instructions="Generate a 2-3 sentence summary of this conversation between a student and AI assistant. Focus on the student's understanding, what concepts they struggled with or demonstrated mastery of, and how they used the assistant's help. Write from a pedagogical perspective that would help an instructor understand the student's learning process and performance.",
+            input=context_input,
+        )
+        
+        # Extract usage and log event
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+                
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                    thread_id=thread_id,
+                    purpose="summary",
+                    response_id=getattr(response, 'id', None),
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for generate_thread_summary: {str(e)}")
+        
+        return response.output_text.strip()
+
+    @staticmethod
+    async def generate_pedagogical_analysis(
+        thread_summaries: List[str],
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+        student_id: Optional[UUID] = None,
+    ) -> str:
+        """Generate a pedagogical analysis of a student's thread summaries focusing on struggles, strengths, and weaknesses."""
+        if not thread_summaries:
+            return "No thread summaries available for analysis."
+        
+        summaries_text = "\n\n".join([f"Thread {i+1}: {summary}" for i, summary in enumerate(thread_summaries)])
+        
+        model = "gpt-5-nano"
+        response = client.responses.create(
+            model=model,
+            instructions="""You are an educational analyst reviewing a student's learning interactions. Analyze the provided thread summaries to provide a pedagogical assessment.
+
+Focus on:
+- Student struggles: What concepts, topics, or skills does the student consistently struggle with?
+- Student strengths: What areas does the student demonstrate understanding or mastery?
+- Learning patterns: How does the student approach problem-solving and learning?
+- Areas for improvement: What specific topics or skills need more attention?
+
+Write a clear, concise analysis (3-5 sentences) that would help an instructor understand this student's learning journey and provide targeted support.""",
+            input=summaries_text,
+        )
+        
+        # Extract usage and log event
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+                
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                    purpose="pedagogical_analysis",
+                    response_id=getattr(response, 'id', None),
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for generate_pedagogical_analysis: {str(e)}")
+        
+        return response.output_text.strip()

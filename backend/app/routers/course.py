@@ -91,6 +91,8 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
             f"Violations: {reasons}"
         )
         await LogService.insert_message(db, thread_id, ChatRole.assistant, system_msg)
+        # Update thread summary after assistant message
+        await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
         return {"id": thread_id}
 
     # Stage 2: Chat with guardrails
@@ -163,6 +165,8 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
         )
         if retry_passed:
             chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output_retry)
+            # Update thread summary after assistant message
+            await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
             return {"id": thread_id}
         else:
             fail_msg = (
@@ -170,10 +174,14 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
                 "Please rephrase your request with more clarity or contact your instructor to adjust prompts."
             )
             await LogService.insert_message(db, thread_id, ChatRole.assistant, fail_msg)
+            # Update thread summary after assistant message (even if it's a failure message)
+            await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
             return {"id": thread_id}
 
     # Success on first attempt
     chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output)
+    # Update thread summary after assistant message
+    await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
     return {"id": thread_id}
 
 
@@ -275,6 +283,8 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                     f"Violations: {reasons}"
                 )
                 await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, system_msg)
+                # Update thread summary after assistant message
+                await ThreadService.update_thread_summary_from_messages(db_conn, thread_id, user_id)
                 # Send the error message as tokens so it displays in the chat
                 yield f"event: token\ndata: {json.dumps({'content': system_msg})}\n\n"
                 yield f"event: done\ndata: {json.dumps({})}\n\n"
@@ -319,6 +329,9 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                 # Save the complete message to the database and get chat_id
                 chat_id = await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, full_response)
                 
+                # Update thread summary after assistant message
+                await ThreadService.update_thread_summary_from_messages(db_conn, thread_id, user_id)
+                
                 # Log AI event with usage info
                 if usage_info:
                     from app.services.ai_events_service import AIEventsService
@@ -333,6 +346,8 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                             tokens_total=usage_info.get('tokens_total'),
                             chat_id=chat_id,
                             thread_id=thread_id,
+                            purpose="student_chat",
+                            response_id=usage_info.get('response_id'),
                         )
                     except Exception as e:
                         print(f"Failed to log AI event for streaming thread creation: {str(e)}")

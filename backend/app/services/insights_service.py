@@ -86,6 +86,8 @@ Generate 10 topic tags that categorize these student discussions."""
                         tokens_in=tokens_in,
                         tokens_out=tokens_out,
                         tokens_total=tokens_total,
+                        purpose="thread_tags",
+                        response_id=getattr(response, 'id', None),
                     )
                 except Exception as e:
                     print(f"Failed to log AI event for generate_thread_tags: {str(e)}")
@@ -181,6 +183,8 @@ Which tag best categorizes this thread? Return only the tag name."""
                             tokens_out=tokens_out,
                             tokens_total=tokens_total,
                             thread_id=thread_id,
+                            purpose="thread_classification",
+                            response_id=getattr(response, 'id', None),
                         )
                     except Exception as e:
                         print(f"Failed to log AI event for classify_threads: {str(e)}")

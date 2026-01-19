@@ -15,6 +15,7 @@ type AssistantMessageProps = {
   chatId?: string
   threadId?: string
   onTryAgain?: () => void
+  showFeedback?: boolean
 }
 
 // Code block component with copy button
@@ -90,7 +91,8 @@ export default function AssistantMessage({
   isStreaming = false,
   chatId,
   threadId,
-  onTryAgain
+  onTryAgain,
+  showFeedback = true
 }: AssistantMessageProps) {
   return (
     <div className="flex-col justify-center my-4 group relative">
@@ -195,7 +197,7 @@ export default function AssistantMessage({
           <span className="inline-block w-2 h-4 bg-foreground animate-pulse ml-1" />
         )}
       </div>
-      {!isStreaming && chatId && (
+      {!isStreaming && chatId && showFeedback && (
         <div className=" ">
           <FeedbackMenu
             chatId={chatId}

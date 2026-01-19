@@ -4,10 +4,12 @@
 # Write chats back to the db, gather context, delete/revise individual messages
 
 import asyncpg
-from typing import Optional, List
+from typing import Optional, List, Dict
 from uuid import UUID
 from app.schemas.thread import GetThreadResponse, ThreadType
 from fastapi import HTTPException
+from app.services.log_service import LogService
+from app.services.chat_service import ChatService
 
 class ThreadService:
 
@@ -239,6 +241,79 @@ class ThreadService:
             WHERE id = $1
         """
         await db.execute(query, thread_id)
+    
+    @staticmethod
+    async def get_student_threads_with_summaries(
+        db: asyncpg.Connection, 
+        course_id: UUID, 
+        student_id: UUID,
+        instructor_id: UUID
+    ) -> List[Dict]:
+        """Get threads for a specific student in a course with summaries from database."""
+        # Query threads filtered by course_id and user_id (student_id), including summary column
+        query = """
+            SELECT id, title, updated_at, summary
+            FROM threads
+            WHERE course_id = $1
+            AND user_id = $2
+            AND (deleted IS NULL OR deleted = false)
+            ORDER BY updated_at DESC
+        """
+        rows = await db.fetch(query, course_id, student_id)
+        
+        result = []
+        for row in rows:
+            # Get summary from database, default to empty string if null
+            summary = row["summary"] if row["summary"] else ""
+            
+            result.append({
+                "id": row["id"],
+                "title": row["title"],
+                "updated_at": row["updated_at"],
+                "summary": summary,
+            })
+        
+        return result
+
+    @staticmethod
+    async def update_thread_summary(db: asyncpg.Connection, thread_id: UUID, summary: str) -> None:
+        """Update the summary column for a thread."""
+        query = """
+            UPDATE threads
+            SET summary = $2
+            WHERE id = $1
+        """
+        await db.execute(query, thread_id, summary)
+
+    @staticmethod
+    async def update_thread_summary_from_messages(
+        db: asyncpg.Connection,
+        thread_id: UUID,
+        user_id: UUID,
+    ) -> None:
+        """Generate and update thread summary from all messages in the thread."""
+        try:
+            # Get all messages from chat_logs for the thread
+            messages = await LogService.get_messages_from_thread(db, thread_id, limit=1000)
+            
+            if not messages:
+                # No messages yet, set empty summary
+                await ThreadService.update_thread_summary(db, thread_id, "")
+                return
+            
+            # Generate summary using gpt-5-nano
+            summary = await ChatService.generate_thread_summary(
+                log=messages,
+                db=db,
+                user_id=user_id,
+                thread_id=thread_id,
+            )
+            
+            # Update the summary in the database
+            await ThreadService.update_thread_summary(db, thread_id, summary)
+        except Exception as e:
+            # Log error but don't fail - summary generation is non-critical
+            print(f"Failed to update thread summary for thread {thread_id}: {str(e)}")
 
 
 

@@ -13,6 +13,7 @@ from app.services.log_service import LogService
 from app.services.thread_service import ThreadService
 from app.services.enroll_service import EnrollService
 from app.services.feedback_service import FeedbackService
+from app.services.user_service import UserService
 from uuid import UUID
 import asyncpg
 import json
@@ -163,6 +164,8 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
         )
         if retry_passed:
             chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output_retry)
+            # Update thread summary after assistant message
+            await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
             return ChatResponse(role=ChatRole.assistant, content=assistant_output_retry)
         else:
             fail_msg = (
@@ -174,6 +177,8 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
 
     # success on first attempt
     chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output)
+    # Update thread summary after assistant message
+    await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
     return ChatResponse(role=ChatRole.assistant, content=assistant_output)
 
 
@@ -318,6 +323,9 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                 # Save the complete message to the database and get chat_id
                 chat_id = await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, full_response)
                 
+                # Update thread summary after assistant message
+                await ThreadService.update_thread_summary_from_messages(db_conn, thread_id, user_id)
+                
                 # Log AI event with usage info
                 if usage_info:
                     from app.services.ai_events_service import AIEventsService
@@ -332,6 +340,8 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                             tokens_total=usage_info.get('tokens_total'),
                             chat_id=chat_id,
                             thread_id=thread_id,
+                            purpose="student_chat",
+                            response_id=usage_info.get('response_id'),
                         )
                     except Exception as e:
                         print(f"Failed to log AI event for streaming chat: {str(e)}")
@@ -361,10 +371,18 @@ async def chat_history(thread_id: UUID, db = Depends(get_db), user: User = Depen
 
     # Get course_id from thread and verify access
     course_id = await ThreadService.get_thread_course_id(db, thread_id)
-    if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"]):
+    
+    # Check if user owns the thread (student) OR is instructor for the course
+    thread_belongs_to_user = await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"])
+    is_instructor = await UserService.verify_instructor_course(db, course_id, user["id"])
+    
+    if not thread_belongs_to_user and not is_instructor:
         raise HTTPException(401, "Not authorized to access this thread")
-    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
-        raise HTTPException(401, "Not authorized to access this course")
+    
+    # If not instructor, verify student enrollment
+    if not is_instructor:
+        if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+            raise HTTPException(401, "Not authorized to access this course")
 
     # fetch message logs from db
     logs: List[MessageLog] = await LogService.get_messages_from_thread(db, thread_id)
@@ -386,10 +404,18 @@ async def get_thread_name_by_id(thread_id: UUID, db = Depends(get_db), user: Use
 
     # Get course_id from thread and verify access
     course_id = await ThreadService.get_thread_course_id(db, thread_id)
-    if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"]):
+    
+    # Check if user owns the thread (student) OR is instructor for the course
+    thread_belongs_to_user = await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"])
+    is_instructor = await UserService.verify_instructor_course(db, course_id, user["id"])
+    
+    if not thread_belongs_to_user and not is_instructor:
         raise HTTPException(401, "Not authorized to access this thread")
-    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
-        raise HTTPException(401, "Not authorized to access this course")
+    
+    # If not instructor, verify student enrollment
+    if not is_instructor:
+        if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+            raise HTTPException(401, "Not authorized to access this course")
 
     return await ThreadService.get_thread_name_by_id(db, thread_id)
 

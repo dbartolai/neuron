@@ -14,6 +14,7 @@ type MessageLogProps = {
     streamingContent?: string
     threadId?: string
     sendMessage?: (content: string) => Promise<void>
+    showFeedback?: boolean
 }
 
 
@@ -23,7 +24,8 @@ export default function MessageLog( {
     isStreaming = false, 
     streamingContent = "",
     threadId,
-    sendMessage
+    sendMessage,
+    showFeedback = true
 }: MessageLogProps ) {
     
     // Auto-scroll to bottom when new messages arrive or streaming content updates
@@ -71,6 +73,7 @@ export default function MessageLog( {
                         chatId={message.id}
                         threadId={threadId}
                         onTryAgain={() => handleTryAgain(index)}
+                        showFeedback={showFeedback}
                         key={message.id || index}
                     />
                 )

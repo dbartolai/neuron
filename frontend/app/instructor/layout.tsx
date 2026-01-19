@@ -9,7 +9,7 @@ import {
 export default function Page({ children }: { children: React.ReactNode }) {
 
   return (
-     <SidebarProvider className="w-full min-h-svh">
+     <SidebarProvider className="w-full max-h-svh">
       <AppSidebar />
       <SidebarInset className=" overflow-auto">
         {children}

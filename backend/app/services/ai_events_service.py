@@ -1,7 +1,7 @@
 """Service for logging AI model API calls to the ai_events table."""
 
 import asyncpg
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 
 
@@ -77,6 +77,8 @@ class AIEventsService:
         chat_id: Optional[UUID] = None,
         thread_id: Optional[UUID] = None,
         cost_usd_micros: Optional[int] = None,
+        purpose: Optional[str] = None,
+        response_id: Optional[str] = None,
     ) -> None:
         """Log an AI event to the ai_events table.
         
@@ -91,6 +93,8 @@ class AIEventsService:
             chat_id: Chat log UUID (optional)
             thread_id: Thread UUID (optional)
             cost_usd_micros: Cost in micros (calculated if not provided)
+            purpose: Purpose of the AI call (e.g., "student_chat", "summary", "thread_name")
+            response_id: OpenAI response ID from response.id
         """
         # Calculate tokens_total if not provided
         if tokens_total is None and tokens_in is not None and tokens_out is not None:
@@ -110,9 +114,11 @@ class AIEventsService:
                 tokens_total,
                 chat_id,
                 thread_id,
-                cost_usd_micros
+                cost_usd_micros,
+                purpose,
+                response_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         """
 
         try:
@@ -127,9 +133,46 @@ class AIEventsService:
                 chat_id,
                 thread_id,
                 cost_usd_micros,
+                purpose,
+                response_id,
             )
         except Exception as e:
             # Log error but don't break main functionality
             print(f"Failed to log AI event: {str(e)}")
             # Re-raise in development, but in production you might want to silently fail
             # raise
+
+    @staticmethod
+    async def get_token_usage_by_model(
+        db: asyncpg.Connection,
+        user_id: UUID,
+        thread_ids: List[UUID],
+    ) -> List[Dict[str, Any]]:
+        """Get token usage grouped by model for a specific user across specified threads.
+        
+        Args:
+            db: Database connection
+            user_id: User UUID to filter by
+            thread_ids: List of thread UUIDs to filter by
+            
+        Returns:
+            List of dicts with keys: model, tokens_in, tokens_out
+        """
+        if not thread_ids:
+            return []
+        
+        # Build query with thread_ids array
+        query = """
+            SELECT 
+                model,
+                COALESCE(SUM(tokens_in), 0) as tokens_in,
+                COALESCE(SUM(tokens_out), 0) as tokens_out
+            FROM ai_events
+            WHERE "user" = $1
+            AND thread_id = ANY($2::uuid[])
+            GROUP BY model
+            ORDER BY model
+        """
+        
+        rows = await db.fetch(query, user_id, thread_ids)
+        return [dict(row) for row in rows]
