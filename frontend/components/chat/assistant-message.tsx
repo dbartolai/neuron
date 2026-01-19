@@ -93,7 +93,7 @@ export default function AssistantMessage({
   onTryAgain
 }: AssistantMessageProps) {
   return (
-    <div className="flex justify-center my-4 group relative">
+    <div className="flex-col justify-center my-4 group relative">
       <div className="max-w-2xl w-full prose prose-slate">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
@@ -196,7 +196,7 @@ export default function AssistantMessage({
         )}
       </div>
       {!isStreaming && chatId && (
-        <div className="absolute left-1/2 -translate-x-1/2 -bottom-6 z-10">
+        <div className=" ">
           <FeedbackMenu
             chatId={chatId}
             content={content}
