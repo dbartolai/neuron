@@ -147,7 +147,7 @@ export default function AdminSchedulerPage() {
   }, [scheduler, sortColumn, sortDirection])
 
   const groupedScheduler = React.useMemo(() => {
-    return groupByDay(sortedScheduler as Array<{
+    const grouped = groupByDay(sortedScheduler as Array<{
       id: number;
       timeslot: string;
       name: string;
@@ -158,6 +158,17 @@ export default function AdminSchedulerPage() {
       employee_name: string | null;
       instructor_id: string | null;
     }>)
+    
+    // Filter out past dates - only show today and future dates
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Set to start of today
+    
+    return grouped.filter((group) => {
+      if (group.items.length === 0) return false
+      const firstItemDate = new Date(group.items[0].timeslot)
+      firstItemDate.setHours(0, 0, 0, 0) // Set to start of day for comparison
+      return firstItemDate >= today
+    })
   }, [sortedScheduler])
 
   const handleSort = (column: SortColumn) => {
