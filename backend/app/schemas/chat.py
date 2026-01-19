@@ -19,5 +19,17 @@ class MessageEntry(BaseModel):
     timestamp: str
 
 class ChatResponse(BaseModel):
+    id: Optional[UUID] = None
     content: str
     role: ChatRole
+
+class ChatFeedbackRequest(BaseModel):
+    chat_id: UUID
+    thumbs_up: Optional[bool] = None
+    thumbs_down: Optional[bool] = None
+    feedback: Optional[str] = None
+
+class ChatFeedbackResponse(BaseModel):
+    thumbs_up: bool
+    thumbs_down: bool
+    feedback: Optional[str] = None

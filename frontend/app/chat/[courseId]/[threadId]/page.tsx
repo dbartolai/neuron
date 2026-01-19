@@ -72,6 +72,8 @@ export default function ThreadPage() {
                 messages={messages} 
                 isStreaming={isStreaming}
                 streamingContent={streamingContent}
+                threadId={threadId}
+                sendMessage={sendMessage}
               />
             </div>
           </div>

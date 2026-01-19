@@ -357,6 +357,8 @@ export default function CoursePage() {
                 messages={displayMessages}
                 isStreaming={showStreaming}
                 streamingContent={displayStreamingContent}
+                threadId={activeThreadId || undefined}
+                sendMessage={activeThreadId ? chat.sendMessage : undefined}
               />
             )}
           </div>

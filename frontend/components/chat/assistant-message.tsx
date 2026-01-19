@@ -1,10 +1,70 @@
+"use client"
+
+import { useState, useRef } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
+import { Copy, Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
+import FeedbackMenu from "./feedback-menu"
 
 type AssistantMessageProps = {
   content: string
   isStreaming?: boolean
+  chatId?: string
+  threadId?: string
+  onTryAgain?: () => void
+}
+
+// Code block component with copy button
+function CodeBlock({ children, ...props }: React.ComponentProps<"pre">) {
+  const [isHovered, setIsHovered] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const preRef = useRef<HTMLPreElement>(null)
+
+  const handleCopy = async () => {
+    try {
+      // Extract text content from the code element inside pre
+      const codeElement = preRef.current?.querySelector('code')
+      const codeText = codeElement?.textContent || preRef.current?.textContent || ''
+      await navigator.clipboard.writeText(codeText)
+      setCopied(true)
+      toast.success("Code copied to clipboard")
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      toast.error("Failed to copy code")
+    }
+  }
+
+  return (
+    <div 
+      className="relative group my-2"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="overflow-auto w-full bg-card rounded-lg p-4 border border-border/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),inset_0_2px_4px_rgba(0,0,0,0.04)]">
+        <pre ref={preRef} {...props}>
+          {children}
+        </pre>
+      </div>
+      {isHovered && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={handleCopy}
+          className="absolute top-2 right-2 h-7 w-7 opacity-70 hover:opacity-100 bg-background/80 backdrop-blur-sm"
+          aria-label="Copy code"
+        >
+          {copied ? (
+            <Check className="size-3" />
+          ) : (
+            <Copy className="size-3" />
+          )}
+        </Button>
+      )}
+    </div>
+  )
 }
 
 // Pulsing thinking indicator shown while waiting for AI response
@@ -25,9 +85,15 @@ export function ThinkingIndicator() {
   );
 }
 
-export default function AssistantMessage({ content, isStreaming = false }: AssistantMessageProps) {
+export default function AssistantMessage({ 
+  content, 
+  isStreaming = false,
+  chatId,
+  threadId,
+  onTryAgain
+}: AssistantMessageProps) {
   return (
-    <div className="flex justify-center my-4">
+    <div className="flex justify-center my-4 group relative">
       <div className="max-w-2xl w-full prose prose-slate">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
@@ -99,10 +165,10 @@ export default function AssistantMessage({ content, isStreaming = false }: Assis
               <td className="border border-border px-4 py-3 text-foreground" {...props} />
             ),
             // Override the <pre> tag to style the code block container
-            pre: ({ node, ...props }) => (
-              <div className="overflow-auto w-full my-2 bg-card rounded-lg p-4 border border-border/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.06),inset_0_2px_4px_rgba(0,0,0,0.04)]">
-                <pre {...props} />
-              </div>
+            pre: ({ node, children, ...props }) => (
+              <CodeBlock {...props}>
+                {children}
+              </CodeBlock>
             ),
             // Override the <code> tag for inline vs block distinction
             code: ({ node, className, children, ...props }) => {
@@ -129,6 +195,15 @@ export default function AssistantMessage({ content, isStreaming = false }: Assis
           <span className="inline-block w-2 h-4 bg-foreground animate-pulse ml-1" />
         )}
       </div>
+      {!isStreaming && chatId && (
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-6 z-10">
+          <FeedbackMenu
+            chatId={chatId}
+            content={content}
+            onTryAgain={onTryAgain}
+          />
+        </div>
+      )}
     </div>
   );
 }

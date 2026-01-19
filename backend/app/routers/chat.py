@@ -5,13 +5,14 @@ from datetime import datetime
 from app.dependencies.db import get_db
 from app.dependencies import db as db_module
 from app.dependencies.auth import me
-from app.schemas.chat import ChatRequest, ChatResponse, ChatRole, MessageEntry
+from app.schemas.chat import ChatRequest, ChatResponse, ChatRole, MessageEntry, ChatFeedbackRequest, ChatFeedbackResponse
 from app.schemas.log import MessageLog
 from app.schemas.user import User
 from app.services.chat_service import ChatService
 from app.services.log_service import LogService
 from app.services.thread_service import ThreadService
 from app.services.enroll_service import EnrollService
+from app.services.feedback_service import FeedbackService
 from uuid import UUID
 import asyncpg
 import json
@@ -372,6 +373,7 @@ async def chat_history(thread_id: UUID, db = Depends(get_db), user: User = Depen
     return [
 
         ChatResponse(
+            id=chat.id,
             content=chat.message,
             role = chat.role
         )
@@ -390,3 +392,66 @@ async def get_thread_name_by_id(thread_id: UUID, db = Depends(get_db), user: Use
         raise HTTPException(401, "Not authorized to access this course")
 
     return await ThreadService.get_thread_name_by_id(db, thread_id)
+
+
+@router.post(path="/feedback")
+async def submit_feedback(
+    body: ChatFeedbackRequest,
+    db: asyncpg.Connection = Depends(get_db),
+    user: User = Depends(me)
+) -> dict:
+    """Submit feedback for a chat message."""
+    
+    # Get thread_id from chat_id and verify access
+    thread_id = await FeedbackService.get_thread_id_from_chat(db, body.chat_id)
+    if thread_id is None:
+        raise HTTPException(status_code=404, detail="chat message not found")
+    
+    course_id = await ThreadService.get_thread_course_id(db, thread_id)
+    if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this thread")
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
+    
+    # Submit feedback
+    await FeedbackService.submit_feedback(
+        db,
+        body.chat_id,
+        body.thumbs_up,
+        body.thumbs_down,
+        body.feedback
+    )
+    
+    return {"success": True}
+
+
+@router.get(path="/{chat_id}/feedback")
+async def get_feedback(
+    chat_id: UUID,
+    db: asyncpg.Connection = Depends(get_db),
+    user: User = Depends(me)
+) -> ChatFeedbackResponse:
+    """Get feedback for a chat message."""
+    
+    # Get thread_id from chat_id and verify access
+    thread_id = await FeedbackService.get_thread_id_from_chat(db, chat_id)
+    if thread_id is None:
+        raise HTTPException(status_code=404, detail="chat message not found")
+    
+    course_id = await ThreadService.get_thread_course_id(db, thread_id)
+    if not await ThreadService.verify_thread_belongs_to_user(db, thread_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this thread")
+    if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to access this course")
+    
+    # Get feedback
+    feedback = await FeedbackService.get_feedback(db, chat_id)
+    
+    if feedback is None:
+        return ChatFeedbackResponse(thumbs_up=False, thumbs_down=False, feedback=None)
+    
+    return ChatFeedbackResponse(
+        thumbs_up=feedback["thumbs_up"],
+        thumbs_down=feedback["thumbs_down"],
+        feedback=feedback["feedback"]
+    )
