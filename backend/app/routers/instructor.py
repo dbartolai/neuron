@@ -14,8 +14,10 @@ from app.services.insights_service import InsightsService
 from app.services.ai_events_service import AIEventsService
 from app.services.chat_service import ChatService
 from app.services.insights_student_service import InsightsStudentService
+from app.services.announcement_service import AnnouncementService
 from app.schemas.course import NewCourse, PatchCourse, CourseFileRequest, CourseFile
 from app.schemas.insights import InsightsStatus, TagStatistics, UpdateTagsRequest, UpdateThreadTagRequest
+from app.schemas.announcement import AnnouncementRequest, AnnouncementUpdate
 from openai import OpenAI
 
 
@@ -104,6 +106,7 @@ async def upload_files(course_id: UUID, files: Annotated[List[UploadFile], File(
             "text/toml",
             "text/yaml",
             "application/json",
+            "text/x-python-script",
             "text/x-python",
             "text/x-java",
             "text/x-c",
@@ -113,6 +116,7 @@ async def upload_files(course_id: UUID, files: Annotated[List[UploadFile], File(
             "text/x-perl",
         ]
         if file.content_type not in ALLOWED_TYPES:
+            print(file.content_type)
             raise HTTPException(400, "Invalid file type. Only PDF, DOCX, and PPTX allowed.")
 
         # read file into memory 
@@ -573,6 +577,72 @@ async def generate_student_insights(
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to generate insights: {str(e)}")
 
-        
+@router.post(path="/courses/{course_id}/announcements")
+async def create_announcement(
+    course_id: UUID,
+    body: AnnouncementRequest,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Create a new announcement for a course."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to create announcement for this course")
+    
+    announcement_id = await AnnouncementService.create_announcement(
+        db, course_id, user["id"], body.title, body.content, body.file_ids
+    )
+    return {"id": announcement_id}
+
+@router.get(path="/courses/{course_id}/announcements")
+async def get_announcements(
+    course_id: UUID,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Get all announcements for a course."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to view announcements for this course")
+    
+    return await AnnouncementService.get_announcements_by_course(db, course_id)
+
+@router.get(path="/announcements/{announcement_id}")
+async def get_announcement(
+    announcement_id: UUID,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Get a single announcement."""
+    announcement = await AnnouncementService.get_announcement(db, announcement_id)
+    
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, announcement.course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to view this announcement")
+    
+    return announcement
+
+@router.patch(path="/announcements/{announcement_id}")
+async def update_announcement(
+    announcement_id: UUID,
+    body: AnnouncementUpdate,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Update an announcement."""
+    announcement = await AnnouncementService.update_announcement(
+        db, announcement_id, user["id"], body.title, body.content, body.file_ids
+    )
+    return announcement
+
+@router.delete(path="/announcements/{announcement_id}")
+async def delete_announcement(
+    announcement_id: UUID,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Delete an announcement."""
+    await AnnouncementService.delete_announcement(db, announcement_id, user["id"])
+    return {"deleted": True}
 
         

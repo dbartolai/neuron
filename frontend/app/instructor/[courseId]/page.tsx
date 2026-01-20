@@ -16,6 +16,7 @@ import { ViewContext } from "@/components/instructor/dashboard/view-context"
 import { InboxCard } from "@/components/instructor/dashboard/students"
 import { InsightsCard } from "@/components/instructor/dashboard/insights"
 import { TestChatCard } from "@/components/instructor/dashboard/test-chat"
+import { AnnouncementInputCard } from "@/components/instructor/announcements/announcement-input-card"
 import {
   Tabs,
   TabsContent,
@@ -36,7 +37,7 @@ export default function CoursePage() {
 
   const router = useRouter();
 
-  const {courseName, courseCode, writingLevel, testingLevel, debuggingLevel, files, updateCourse } = useInstructorCourse(courseId);
+  const {courseName, courseCode, writingLevel, testingLevel, debuggingLevel, files, updateCourse, refetchFiles } = useInstructorCourse(courseId);
   console.log("NAME: ", courseName)
 
   const handleLevelChange = async (levelType: string, levelIdx: number) => {
@@ -72,27 +73,33 @@ export default function CoursePage() {
             <div className="w-[30%]"><Level id={`d-${debuggingLevel}`} courseId={courseId} onLevelChange={handleLevelChange}/></div>
         </div>
         <div className="flex flex-4 mt-10 justify-around">
-          <div className="flex flex-col w-md">
+          <div className="flex flex-col w-md gap-4">
           <InboxCard courseId={courseId}/>
             <TestChatCard/>
           </div>
-          <Tabs defaultValue="view">
+          <div className="w-md">
+          <AnnouncementInputCard onPostSuccess={refetchFiles}/>
+          </div>
+
+
+          <div>
+          <InsightsCard/>
+
+          <Tabs defaultValue="view" className="mt-8">
             <TabsList>
               <TabsTrigger value="add">Add</TabsTrigger>
               <TabsTrigger value="view">View</TabsTrigger>
             </TabsList>
             <TabsContent value="add">
-              <AddContext/>
+              <AddContext onUploadSuccess={refetchFiles}/>
             </TabsContent>
             <TabsContent value="view">
-              <ViewContext files={files}/>
+              <ViewContext files={files} onRefetch={refetchFiles}/>
             </TabsContent>
-
-
           </Tabs>
-          <InsightsCard/>
+
         </div>
-        
+        </div>
         </>
   )
 }

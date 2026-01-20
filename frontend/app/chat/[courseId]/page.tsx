@@ -23,6 +23,10 @@ import { ChatRole, ChatMessage, useChat } from "@/hooks/use-chat"
 import { H1, Muted } from "@/components/primitives"
 import { getApiUrl } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Mail } from "lucide-react"
+import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { useUnseenCount } from "@/hooks/use-announcement-seen"
 
 type ThreadType = "writing" | "testing" | "debugging"
 
@@ -56,6 +60,7 @@ export default function CoursePage() {
   }>();
 
   const {access, courseName, policy, courseLoading, policyLoading} = useCourse(courseId);
+  const { count: unseenCount, refetch: refetchUnseenCount } = useUnseenCount(courseId);
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
@@ -320,7 +325,7 @@ export default function CoursePage() {
         ) : access ? (
           <>
         <header className="flex h-16 shrink-0 items-center gap-2">
-          <div className="flex items-center gap-2 px-4">
+          <div className="flex items-center gap-2 px-4 flex-1">
             <SidebarTrigger className="-ml-1" />
             <Separator
               orientation="vertical"
@@ -339,6 +344,24 @@ export default function CoursePage() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
+          </div>
+          <div className="px-4">
+            <Link href={`/chat/${courseId}/announcements`} onClick={() => refetchUnseenCount()}>
+              <div className="relative">
+                <button className="p-2 rounded hover:bg-muted transition-colors">
+                  <Mail className="h-5 w-5" />
+                  <span className="sr-only">Announcements</span>
+                </button>
+                {unseenCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center px-1 text-xs"
+                  >
+                    {unseenCount > 99 ? '99+' : unseenCount}
+                  </Badge>
+                )}
+              </div>
+            </Link>
           </div>
         </header>
         <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 pt-0 overflow-x-hidden w-full  chat-scroll">

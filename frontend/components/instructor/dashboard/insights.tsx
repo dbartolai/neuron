@@ -36,7 +36,7 @@ export function InsightsCard() {
 
   if (!status) {
     return (
-      <Card className="w-md max-w-md bg-card h-min">
+      <Card className="w-md max-w-md bg-card h-min mb-8">
         <CardHeader>
           <CardTitle>Insights</CardTitle>
           <CardDescription>

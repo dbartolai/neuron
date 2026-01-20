@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { getAccessToken, supabase } from "@/lib/supabase/client"
-import { LucideIcon, SquareTerminal } from "lucide-react"
+import { LucideIcon, SquareTerminal, Mail } from "lucide-react"
 import { getApiUrl } from "@/lib/utils"
 
 
@@ -54,6 +54,7 @@ function mapSidebar(courses: SidebarCourse[]): NavCourse[] {
     return courses.map((c) => {
         const courseUrl = `/chat/${c.id}`;
         const items = [
+            {title: "Announcements", url: `/chat/${c.id}/announcements`},
             {title: "+ New Thread", url: courseUrl},
             ...c.thread_preview.map((t) => ({
                 title: t.title, 

@@ -18,9 +18,15 @@ import { ExternalLink, Plus, Trash2 } from "lucide-react"
 import React from "react"
 import { getAccessToken } from "@/lib/supabase/client"
 import { getApiUrl } from "@/lib/utils"
+import { toast } from "sonner"
+import { Spinner } from "@/components/ui/spinner"
 
 
-export function AddContext() {
+interface Props {
+  onUploadSuccess?: () => void
+}
+
+export function AddContext({ onUploadSuccess }: Props) {
   const { courseId } = useParams<{ courseId: string }>();
 
   const MAX_FILES = 5;
@@ -29,6 +35,7 @@ export function AddContext() {
   const [files, setFiles] = React.useState<{ id: string; file: File | null }[]>(() => [
     { id: makeId(), file: null },
   ]);
+  const [isUploading, setIsUploading] = React.useState(false);
 
   function handleFileChange(index: number, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
@@ -58,15 +65,16 @@ export function AddContext() {
 
 
 async function handleAddFiles() {
-
   const validFiles = files
       .map((f) => f.file)
       .filter((file): file is File => file !== null);
 
     if (validFiles.length === 0) {
-      alert("Please select at least one file.");
+      toast.error("Please select at least one file.");
       return;
     }
+
+    setIsUploading(true);
 
     try {
       const formData = new FormData();
@@ -93,11 +101,19 @@ async function handleAddFiles() {
       console.log("Uploaded successfully:", data);
       
       setFiles([{ id: makeId(), file: null }]); 
-      alert("Files uploaded successfully!");
+      
+      // Refetch files to show the newly uploaded files
+      if (onUploadSuccess) {
+        await onUploadSuccess();
+      }
+      
+      toast.success("Files uploaded successfully!");
 
     } catch (error) {
       console.error("Error uploading files:", error);
-      alert("Failed to upload files. Check console for details.");
+      toast.error("Failed to upload files. Please try again.");
+    } finally {
+      setIsUploading(false);
     }
   }
   return (
@@ -154,8 +170,18 @@ async function handleAddFiles() {
         </form>
       </CardContent>
       <CardFooter>
-        <Button type="button" onClick={handleAddFiles} className="w-full">
-          Add files
+        <Button 
+          type="button" 
+          onClick={handleAddFiles} 
+          className="w-full relative"
+          disabled={isUploading}
+        >
+          {isUploading && (
+            <span className="absolute inset-0 flex items-center justify-center">
+              <Spinner className="size-4" />
+            </span>
+          )}
+          <span className={isUploading ? "invisible" : ""}>Add files</span>
         </Button>
       </CardFooter>
     </Card>

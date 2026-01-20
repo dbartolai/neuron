@@ -60,6 +60,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {
         title: `Insights`,
         url: `${getFrontendUrl()}/instructor/${c.id}/insights`
+      },
+      {
+        title: `Announcements`,
+        url: `${getFrontendUrl()}/instructor/${c.id}/announcements`
       }
       ]
     }));

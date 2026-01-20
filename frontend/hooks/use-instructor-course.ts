@@ -17,6 +17,7 @@ export interface useCourseResponse {
     students: Student[]
     files: File[]
     updateCourse: (patch: PatchCourse) => {}
+    refetchFiles: () => Promise<void>
 }
 
 interface PatchCourse {
@@ -65,6 +66,30 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
     const [courseLoading, setCourseLoading] = useState(false);
     const [students, setStudents] = useState<Student[]>([]);
     const [files, setFiles] = useState<File[]>([]);
+
+    const refetchFiles = async () => {
+        if (!courseId) return;
+
+        try {
+            const token = await getAccessToken();
+            const fileRes = await fetch(`${getApiUrl()}/instructor/courses/${courseId}/files`, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!fileRes.ok) {
+                throw new Error("Failed to fetch files");
+            }
+
+            const filedata: File[] = await fileRes.json();
+            setFiles(filedata);
+        } catch (e: any) {
+            console.error("Error refetching files:", e);
+            setCourseError(e?.message || "Failed to refetch files");
+        }
+    };
 
     const updateCourse = async (patch: PatchCourse) => {
 
@@ -223,6 +248,7 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
         courseLoading,
         students,
         files,
-        updateCourse
+        updateCourse,
+        refetchFiles
     }
 }

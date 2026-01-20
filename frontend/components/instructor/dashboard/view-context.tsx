@@ -32,9 +32,10 @@ import { formatBytes } from "@/lib/utils"
 
 interface Props {
   files: File[]
+  onRefetch?: () => void
 }
 
-export function ViewContext({ files }: Props) {
+export function ViewContext({ files, onRefetch }: Props) {
   const { courseId } = useParams<{ courseId: string }>();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -65,7 +66,7 @@ export function ViewContext({ files }: Props) {
       </div>
       {showDelete && (
         <div onClick={(e) => e.stopPropagation()}>
-          <DeleteFile file_id={file.id} course_id={courseId} />
+          <DeleteFile file_id={file.id} course_id={courseId} onDeleteSuccess={onRefetch} />
         </div>
       )}
     </div>
