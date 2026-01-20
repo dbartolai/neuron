@@ -17,7 +17,7 @@ export function AuthListener({ children }: { children: React.ReactNode }) {
       if (!PUBLIC_ROUTES.includes(pathname)) {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
-          router.replace("/login")
+          router.replace("/")
         }
       }
     }
@@ -28,7 +28,7 @@ export function AuthListener({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       const onPublic = PUBLIC_ROUTES.includes(pathname)
       if (!session && !onPublic) {
-        router.replace("/login")
+        router.replace("/")
       }
       if (session && onPublic) {
         router.replace("/router")

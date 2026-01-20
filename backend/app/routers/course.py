@@ -12,6 +12,7 @@ from app.services.prompt_service import PromptService
 from app.services.enroll_service import EnrollService
 from app.dependencies.levels import GLOBAL_INVARIANTS
 from app.schemas.user import User
+from app.services.fallback_service import FallbackService, ViolationType
 from app.schemas.course import CoursePolicy
 from app.schemas.chat import ChatRole, ChatResponse, MessageEntry
 from uuid import UUID
@@ -85,11 +86,17 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
     )
     if not passed:
         violations = details.get("violations", [])
-        reasons = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Does not meet student rules."
-        system_msg = (
-            f"Your prompt did not pass the current course rules. Please revise and try again.\n"
-            f"Violations: {reasons}"
+        
+        # Use deterministic fallback service (pedagogy-first, not generic rejection)
+        violation_type = FallbackService.infer_violation_type(violations, body.first_message)
+        system_msg = FallbackService.generate_fallback(
+            violation_type=violation_type,
+            thread_type=thread_type,
+            level_index=level_idx,
+            student_prompt=body.first_message,
+            violations=violations
         )
+        
         await LogService.insert_message(db, thread_id, ChatRole.system, system_msg)
         # Update thread summary after assistant message
         await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
@@ -169,9 +176,15 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
             await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
             return {"id": thread_id}
         else:
-            fail_msg = (
-                "I couldn't produce a response that met the course guardrails. "
-                "Please rephrase your request with more clarity or contact your instructor to adjust prompts."
+            # Response validation failed twice - use deterministic fallback
+            violations_retry = resp_details.get("violations", [])
+            violation_type_retry = FallbackService.infer_violation_type(violations_retry, body.first_message)
+            fail_msg = FallbackService.generate_fallback(
+                violation_type=violation_type_retry,
+                thread_type=thread_type,
+                level_index=level_idx,
+                student_prompt=body.first_message,
+                violations=violations_retry
             )
             await LogService.insert_message(db, thread_id, ChatRole.assistant, fail_msg)
             # Update thread summary after assistant message (even if it's a failure message)
@@ -286,14 +299,54 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
         # (the dependency-injected connection is released when endpoint returns)
         async with db_module.pool.acquire() as db_conn:
 
-            # If student rules check failed, send error message as tokens then done
+            # If student rules check failed, send pedagogical fallback as tokens then done
             if not passed:
                 violations = details.get("violations", [])
-                reasons = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Does not meet student rules."
-                system_msg = (
-                    f"Your prompt did not pass the current course rules. Please revise and try again.\n"
-                    f"Violations: {reasons}"
+                
+                # Fetch thread_type for fallback generation
+                meta_query = """
+                    SELECT t.thread_type
+                    FROM threads t
+                    WHERE t.id = $1
+                """
+                meta_row = await db_conn.fetchrow(meta_query, thread_id)
+                thread_type_val = meta_row["thread_type"] if meta_row else "writing"
+                
+                # Fetch level_idx
+                course_query = """
+                    SELECT t.course_id
+                    FROM threads t
+                    WHERE t.id = $1
+                """
+                course_row = await db_conn.fetchrow(course_query, thread_id)
+                course_id_val = course_row["course_id"] if course_row else None
+                
+                level_idx_val = 0
+                if course_id_val:
+                    levels_query = """
+                        SELECT writing_level, testing_level, debugging_level
+                        FROM courses
+                        WHERE id = $1
+                    """
+                    course_levels = await db_conn.fetchrow(levels_query, course_id_val)
+                    if course_levels:
+                        if thread_type_val == "writing":
+                            level_idx_val = course_levels["writing_level"]
+                        elif thread_type_val == "testing":
+                            level_idx_val = course_levels["testing_level"]
+                        elif thread_type_val == "debugging":
+                            level_idx_val = course_levels["debugging_level"]
+                
+                # Generate pedagogical fallback
+                violation_type = FallbackService.infer_violation_type(violations, first_message)
+                system_msg = FallbackService.generate_fallback(
+                    violation_type=violation_type,
+                    thread_type=thread_type_val,
+                    level_index=level_idx_val,
+                    student_prompt=first_message,
+                    violations=violations
                 )
+                
                 await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, system_msg)
                 # Update thread summary after assistant message
                 await ThreadService.update_thread_summary_from_messages(db_conn, thread_id, user_id)
@@ -364,8 +417,15 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                     except Exception as e:
                         print(f"Failed to log AI event for streaming thread creation: {str(e)}")
             except Exception as e:
-                # Log the error and send an error event to the client
-                error_msg = f"An error occurred while processing your request. Please try again or contact support if the issue persists."
+                # Log the error and send a pedagogical fallback to the client
+                # Use generic fallback for unexpected errors
+                error_msg = FallbackService.generate_fallback(
+                    violation_type=ViolationType.GENERIC,
+                    thread_type=thread_type if 'thread_type' in locals() else "writing",
+                    level_index=level.get("index", 0) if level else 0,
+                    student_prompt=first_message,
+                    violations=[{"rule": 0, "reason": "Internal processing error"}]
+                )
                 await LogService.insert_message(db_conn, thread_id, ChatRole.system, error_msg)
                 yield f"event: error\ndata: {json.dumps({'message': error_msg})}\n\n"
                 print(f"Error in thread stream: {str(e)}")

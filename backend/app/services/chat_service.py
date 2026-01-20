@@ -8,6 +8,7 @@ import json
 from typing import List, Tuple, Dict, Any, AsyncGenerator, Optional
 from app.schemas.chat import ChatRequest, ChatResponse, MessageEntry
 from app.schemas.log import MessageLog
+from app.schemas.prompt_contract import build_system_prompt
 from openai import OpenAI
 from uuid import UUID
 import asyncpg
@@ -114,11 +115,8 @@ class ChatService:
         """Send a chat to OpenAI with guardrails prepended as system guidance.
         If vector_store_id is provided, expose the file_search tool bound to that store.
         """
-        system = (
-            "All responses must be valid GitHub-Flavored Markdown.\n"
-            "Do not emit HTML.\n"
-            "If writing code, use fenced code blocks with language tags.\n\n"
-        ) + _format_rules("Guardrails:", guardrails)
+        # Use the unified prompt contract as the foundation
+        system = build_system_prompt(level_guardrails=guardrails)
 
         # Flatten provided messages to a single input string (responses.create)
         # Skip system messages so rule violations don't pollute LLM context
@@ -178,11 +176,8 @@ class ChatService:
         If vector_store_id is provided, expose the file_search tool bound to that store.
         If usage_info dict is provided, it will be populated with usage data from the final event.
         """
-        system = (
-            "All responses must be valid GitHub-Flavored Markdown.\n"
-            "Do not emit HTML.\n"
-            "If writing code, use fenced code blocks with language tags.\n\n"
-        ) + _format_rules("Guardrails:", guardrails)
+        # Use the unified prompt contract as the foundation
+        system = build_system_prompt(level_guardrails=guardrails)
 
         # Flatten provided messages to a single input string (responses.create)
         # Skip system messages so rule violations don't pollute LLM context
