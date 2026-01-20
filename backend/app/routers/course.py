@@ -347,7 +347,7 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                     violations=violations
                 )
                 
-                await LogService.insert_message(db_conn, thread_id, ChatRole.assistant, system_msg)
+                await LogService.insert_message(db_conn, thread_id, ChatRole.system, system_msg)
                 # Update thread summary after assistant message
                 await ThreadService.update_thread_summary_from_messages(db_conn, thread_id, user_id)
                 # Send the error message as tokens so it displays in the chat
