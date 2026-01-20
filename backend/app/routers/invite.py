@@ -55,7 +55,7 @@ async def activate_instructor(body: InstructorActivate, db = Depends(get_db)):
            "type": "magiclink",
             "email": email,
             "options":{
-                "redirect_to":f"{get_frontend_url()}/instructor/dashboard"
+                "redirect_to":f"https://neuron.ceria.io/instructor/dashboard"
             }
        })
 

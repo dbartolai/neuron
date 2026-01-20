@@ -88,7 +88,31 @@ async def upload_files(course_id: UUID, files: Annotated[List[UploadFile], File(
 
 
         # Check that file is pdf, docx, or pptx
-        if file.content_type not in ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "text/markdown"]:
+        ALLOWED_TYPES = [
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "text/markdown",
+            "text/plain",
+            "text/csv",
+            "text/html",
+            "text/xml",
+            "text/css",
+            "text/javascript",
+            "text/json",
+            "text/yaml",
+            "text/toml",
+            "text/yaml",
+            "application/json",
+            "text/x-python",
+            "text/x-java",
+            "text/x-c",
+            "text/x-c++",
+            "text/x-php",
+            "text/x-ruby",
+            "text/x-perl",
+        ]
+        if file.content_type not in ALLOWED_TYPES:
             raise HTTPException(400, "Invalid file type. Only PDF, DOCX, and PPTX allowed.")
 
         # read file into memory 
