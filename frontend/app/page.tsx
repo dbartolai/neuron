@@ -6,9 +6,10 @@ import { getApiUrl } from "@/lib/utils"
 
 /**
  * Neuron landing page
- * - Serif for branding/hero, sans for body
- * - Warm, academic, minimal layout
- * - CTA to request invite/call/demo via school email
+ * - Ultra-scan-friendly, conversion-oriented
+ * - Academic, premium aesthetic (not marketing-y)
+ * - Reduced copy by ~50%
+ * - Hero with video demo
  */
 export default function NeuronLandingPage() {
   const [status, setStatus] = React.useState<"idle" | "submitting" | "sent" | "error">("idle")
@@ -19,6 +20,7 @@ export default function NeuronLandingPage() {
   const [selectedTimeslot, setSelectedTimeslot] = React.useState<string>("")
   const [availableTimeslots, setAvailableTimeslots] = React.useState<Array<{ id: number; timeslot: string }>>([])
   const [timeslotsLoading, setTimeslotsLoading] = React.useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
 
   // Fetch available timeslots on mount
   React.useEffect(() => {
@@ -80,8 +82,6 @@ export default function NeuronLandingPage() {
       return
     }
 
-    setStatus("submitting")
-
     try {
       const res = await fetch(`${getApiUrl()}/admin/scheduler/interest`, {
         method: "POST",
@@ -102,7 +102,6 @@ export default function NeuronLandingPage() {
       }
 
       setStatus("sent")
-      // Reset form
       setName("")
       setEmail("")
       setInterest("Invite / early access")
@@ -115,14 +114,11 @@ export default function NeuronLandingPage() {
 
   return (
     <div className="min-h-screen w-full bg-background text-foreground font-sans">
-      {/* Top bar */}
-      <header className="mx-auto w-full max-w-6xl px-6 pt-8">
+      {/* SECTION 1 — TOP NAV */}
+      <header className="mx-auto w-full max-w-6xl px-5 pt-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Logo mark placeholder */}
-            <div className="h-9 w-9 rounded-xl  grid place-items-center">
-              <img src="/c.png" alt="neuron" className="h-9 w-9 rounded-xl" />
-            </div>
+            <img src="/c.png" alt="neuron" className="h-9 w-9 rounded-xl" />
             <div className="leading-tight">
               <div className="text-sm font-medium">neuron</div>
               <div className="text-xs text-muted-foreground">by ceria</div>
@@ -139,28 +135,47 @@ export default function NeuronLandingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+              className="hidden sm:inline-flex items-center rounded-2xl border border-black/10 bg-white/40 px-4 py-2 text-sm font-medium hover:bg-white/60 transition-colors"
             >
               Login
             </Link>
             <Link
-              href="/signup"
-              className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
+              href="#access"
+              className="inline-flex items-center rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
             >
-              Sign up
+              Request access
             </Link>
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden ml-2 p-2"
+              aria-label="Menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
           </div>
         </div>
+
+        {isMobileMenuOpen && (
+          <nav className="md:hidden mt-4 pb-4 space-y-2 text-sm text-muted-foreground">
+            <a className="block hover:text-foreground transition-colors" href="#how" onClick={() => setIsMobileMenuOpen(false)}>How it works</a>
+            <a className="block hover:text-foreground transition-colors" href="#benefits" onClick={() => setIsMobileMenuOpen(false)}>Benefits</a>
+            <a className="block hover:text-foreground transition-colors" href="#access" onClick={() => setIsMobileMenuOpen(false)}>Early access</a>
+            <a className="block hover:text-foreground transition-colors" href="#about" onClick={() => setIsMobileMenuOpen(false)}>About</a>
+            <Link href="/login" className="block pt-2" onClick={() => setIsMobileMenuOpen(false)}>Login</Link>
+          </nav>
+        )}
       </header>
 
-      {/* Hero */}
-      <main className="mx-auto w-full max-w-6xl px-6">
+      <main className="mx-auto w-full max-w-6xl px-5">
+        {/* SECTION 2 — HERO */}
         <section className="mt-10 md:mt-16 grid gap-10 md:grid-cols-12 items-start">
-          <div className="md:col-span-7">
-            <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-3 py-1 text-xs text-muted-foreground shadow-sm">
-              Instructor-controlled AI for programming education
+          <div className="md:col-span-6">
+            <p className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/40 px-3 py-1 text-xs text-muted-foreground shadow-sm">
+              Instructor-controlled AI for programming courses
               <span className="h-1 w-1 rounded-full bg-muted-foreground" />
-              Pilot conversations for Spring 2026
+              Spring 2026 pilot conversations
             </p>
 
             <h1 className="mt-6 font-serif text-4xl md:text-5xl tracking-tight">
@@ -168,126 +183,117 @@ export default function NeuronLandingPage() {
             </h1>
 
             <p className="mt-4 text-base md:text-lg text-muted-foreground leading-relaxed max-w-xl">
-              Neuron is an instructor-controlled AI development environment that teaches students to use AI
-              responsibly while preserving learning outcomes and academic integrity.
+              Promotes academic integrity, delivers course-aware student help, and gives instructors visibility into student needs.
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
               <a
                 href="#access"
-                className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
+                className="inline-flex items-center justify-center rounded-2xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
               >
-                Request an invite / demo
+                Request a conversation / pilot
               </a>
               <a
-                href="#how"
-                className="inline-flex items-center justify-center rounded-lg border border-border bg-card/60 px-5 py-3 text-sm font-medium shadow-sm hover:bg-card transition-colors"
+                href="#demo"
+                className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white/40 px-5 py-3 text-sm font-medium shadow-sm hover:bg-white/60 transition-colors"
               >
-                Learn how it works
+                Watch 90s demo
               </a>
             </div>
 
             <p className="mt-4 text-xs text-muted-foreground max-w-xl">
-              Neuron is not an AI detection or surveillance tool. It makes acceptable AI usage explicit and
-              auditable, reducing adversarial enforcement.
+              Not AI detection. Not surveillance. Policy-aligned assistance + audit trail.
             </p>
           </div>
 
-          {/* Right column card */}
-          <div className="md:col-span-5">
-            <div className="rounded-2xl border border-border bg-card/60 shadow-sm">
-              <div className="p-6">
-                <div className="text-sm font-medium">Designed for large programming courses</div>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  Neuron looks and feels like the tools students already use — but its behavior is defined by
-                  course policy and pedagogy.
-                </p>
-
-                <div className="mt-5 grid gap-3">
-                  <FeaturePill title="Course & assignment guardrails" desc="Enable/disable code, pseudocode, tests, walkthroughs, hints." />
-                  <FeaturePill title="Course-aware context" desc="Instructor uploads improve relevance and reliability." />
-                  <FeaturePill title="Policy-compliant logs" desc="Auditable interactions deter misuse and reduce disputes." />
-                </div>
-              </div>
-
-              <div className="border-t border-border px-6 py-4 flex items-center justify-between">
-                <div className="text-xs text-muted-foreground">Standard AI optimizes productivity.</div>
-                <div className="text-xs font-medium">Neuron optimizes learning.</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section id="how" className="mt-14 md:mt-20">
-          <SectionHeading eyebrow="How it works" title="Instructor-defined boundaries, student-friendly UX" />
-
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <InfoCard
-              title="Guardrails as policy presets"
-              body="Configure the model's output at the course or assignment level — from 'leading questions only' to structured hints, to enabling/disabling code generation."
-            />
-            <InfoCard
-              title="Development-centric workflows"
-              body="A web client plus developer-friendly integrations (e.g., VS Code / terminal-style experiences) to meet students where they work."
-            />
-            <InfoCard
-              title="Auditability without adversarial policing"
-              body="Interaction logs are policy-compliant by design, reducing false accusations and giving students a defensible record of acceptable AI use."
+          <div className="md:col-span-6">
+            <VideoDemo
+              videoUrl=""
+              posterUrl=""
+              caption="See policy → student experience → audit trail → insights in 90 seconds."
             />
           </div>
         </section>
 
-        {/* Benefits */}
-        <section id="benefits" className="mt-14 md:mt-20">
-          <SectionHeading eyebrow="Benefits" title="Better outcomes for instructors and students" />
+        {/* SECTION 3 — THREE BENEFITS */}
+        <section id="benefits" className="mt-20 md:mt-24">
+          <h2 className="font-serif text-2xl md:text-3xl tracking-tight">Three outcomes instructors care about.</h2>
 
-          <div className="mt-8 grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-card/60 shadow-sm p-6">
-              <h3 className="font-medium">For instructors</h3>
-              <ul className="mt-3 space-y-2 text-sm text-muted-foreground list-disc pl-5">
-                <li>Enforceable, transparent AI usage policy</li>
-                <li>Outputs aligned with pedagogy and course expectations</li>
-                <li>Auditable interactions to deter misbehavior</li>
-                <li>Fewer disputes and fewer false accusations</li>
-              </ul>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card/60 shadow-sm p-6">
-              <h3 className="font-medium">For students</h3>
-              <ul className="mt-3 space-y-2 text-sm text-muted-foreground list-disc pl-5">
-                <li>Clear, enforced boundaries for acceptable AI use</li>
-                <li>Course- and assignment-tailored guidance</li>
-                <li>Access to AI without fear of policy violation</li>
-                <li>Protection against wrongful claims of AI misuse</li>
-              </ul>
-            </div>
+          <div className="mt-8 grid gap-6 md:grid-cols-3">
+            <BenefitCard
+              title="Integrity by design"
+              sentence="Makes acceptable AI usage explicit and auditable, reducing adversarial enforcement."
+              bullets={[
+                "Policy-aligned interactions",
+                "Transparent audit trail"
+              ]}
+            />
+            <BenefitCard
+              title="More relevant student help"
+              sentence="Course context and instructor guidance improve AI responses for learning."
+              bullets={[
+                "Course-aware responses",
+                "Instructor-defined boundaries"
+              ]}
+            />
+            <BenefitCard
+              title="Visibility into student needs"
+              sentence="Aggregated insights show what students struggle with across assignments."
+              bullets={[
+                "Pattern detection",
+                "Pedagogical feedback"
+              ]}
+            />
           </div>
         </section>
 
-        {/* Early access */}
-        <section id="access" className="mt-14 md:mt-20">
-          <SectionHeading eyebrow="Early access" title="Request an invite, call, or demo" />
+        {/* SECTION 4 — HOW IT WORKS */}
+        <section id="how" className="mt-20 md:mt-24">
+          <h2 className="font-serif text-2xl md:text-3xl tracking-tight">How it works</h2>
+
+          <div className="mt-8 grid gap-6 md:grid-cols-4">
+            <StepCard
+              number={1}
+              title="Policy presets"
+              caption="Configure guardrails at course or assignment level."
+            />
+            <StepCard
+              number={2}
+              title="Course context"
+              caption="Instructor uploads improve relevance and reliability."
+            />
+            <StepCard
+              number={3}
+              title="Auditable interactions"
+              caption="All student-AI exchanges logged with policy compliance."
+            />
+            <StepCard
+              number={4}
+              title="Instructor insights"
+              caption="Aggregated patterns reveal what students need help with."
+            />
+          </div>
+        </section>
+
+        {/* SECTION 5 — EARLY ACCESS CTA */}
+        <section id="access" className="mt-20 md:mt-24">
+          <h2 className="font-serif text-2xl md:text-3xl tracking-tight">Request a conversation, invite, or demo</h2>
 
           <div className="mt-8 grid gap-6 md:grid-cols-12">
-            <div className="md:col-span-6 rounded-2xl border border-border bg-card/60 shadow-sm p-6">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                We're starting with short, low-commitment conversations to understand how instructors currently
-                frame and enforce AI usage in programming courses.
-              </p>
+            <div className="md:col-span-7 rounded-3xl border border-black/10 bg-white/40 shadow-sm p-6 md:p-8">
 
-              <form onSubmit={onSubmit} className="mt-6 space-y-4">
+              <form onSubmit={onSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium">Select a timeslot *</label>
+                  <label className="block text-xs font-medium mb-2">Select a timeslot *</label>
                   {timeslotsLoading ? (
-                    <div className="mt-2 text-sm text-muted-foreground">Loading timeslots...</div>
+                    <div className="text-sm text-muted-foreground">Loading timeslots...</div>
                   ) : timeslotsByDay.length === 0 ? (
-                    <div className="mt-2 text-sm text-muted-foreground">No available timeslots at the moment</div>
+                    <div className="text-sm text-muted-foreground">No available timeslots at the moment</div>
                   ) : (
-                    <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-border bg-card">
+                    <div className="max-h-48 overflow-y-auto chat-scroll rounded-2xl border border-black/10 bg-white/60">
                       {timeslotsByDay.map(({ day, slots }) => (
-                        <div key={day} className="border-b border-border last:border-b-0">
-                          <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50">
+                        <div key={day} className="border-b border-black/10 last:border-b-0">
+                          <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-white/40">
                             {day}
                           </div>
                           {slots.map((slot) => {
@@ -304,7 +310,7 @@ export default function NeuronLandingPage() {
                                 key={slot.id}
                                 type="button"
                                 onClick={() => setSelectedTimeslot(slotValue)}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors ${
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-white/80 transition-colors ${
                                   isSelected ? "bg-primary/10 border-l-2 border-l-primary" : ""
                                 }`}
                               >
@@ -319,34 +325,34 @@ export default function NeuronLandingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium">Name</label>
+                  <label className="block text-xs font-medium mb-2">Name</label>
                   <input
                     type="text"
                     placeholder="Your name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-2xl border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium">School email</label>
+                  <label className="block text-xs font-medium mb-2">School email *</label>
                   <input
                     required
                     type="email"
                     placeholder="name@university.edu"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-2xl border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium">What are you interested in?</label>
+                  <label className="block text-xs font-medium mb-2">What are you interested in?</label>
                   <select
                     value={interest}
                     onChange={(e) => setInterest(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-2xl border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option>Invite / early access</option>
                     <option>15–20 min call</option>
@@ -356,20 +362,20 @@ export default function NeuronLandingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium">Notes</label>
+                  <label className="block text-xs font-medium mb-2">Notes</label>
                   <textarea
-                    placeholder="Course name, size, and how you're thinking about AI policy…"
-                    rows={4}
+                    placeholder="Course name, size, AI policy approach…"
+                    rows={3}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="mt-2 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-2xl border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring resize-none"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={status === "submitting"}
-                  className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-60 transition-opacity"
+                  className="inline-flex w-full items-center justify-center rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-60 transition-opacity"
                 >
                   {status === "submitting" ? "Submitting…" : status === "sent" ? "Request sent" : status === "error" ? "Error - try again" : "Submit request"}
                 </button>
@@ -382,79 +388,71 @@ export default function NeuronLandingPage() {
 
                 {status !== "sent" && (
                   <p className="text-xs text-muted-foreground">
-                    We'll only use your email to follow up about Neuron. No mailing lists.
+                    We'll only use your email to follow up. No mailing lists.
                   </p>
                 )}
               </form>
             </div>
 
-            <div className="md:col-span-6 rounded-2xl border border-border bg-card/60 shadow-sm p-6">
-              <h3 className="font-medium">What you'll get</h3>
-              <div className="mt-4 space-y-3">
-                <TimelineItem
-                  title="A short conversation"
-                  body="We'll learn how you currently handle AI policy in your programming course — what's working, what isn't."
-                />
-                <TimelineItem
-                  title="A guided walkthrough"
-                  body="We'll show how guardrail presets and course context can align AI outputs with your pedagogy."
-                />
-                <TimelineItem
-                  title="Optional pilot (subsidized)"
-                  body="After interest is expressed, we may invite you to a time-bound, feedback-oriented pilot in 2026."
-                />
-              </div>
-
-              <div className="mt-6 rounded-xl border border-border bg-card px-4 py-3">
-                <div className="text-xs font-medium">Positioning note</div>
-                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  Neuron emphasizes pedagogy and policy clarity over tooling. It is designed to reduce adversarial
-                  enforcement by making acceptable AI usage explicit and auditable.
-                </p>
-              </div>
+            <div className="md:col-span-5 rounded-3xl border border-black/10 bg-white/40 shadow-sm p-6 md:p-8">
+              <h3 className="text-sm font-medium mb-4">What we're looking for</h3>
+              
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                  <span>Instructors willing to share how they approach AI use by students, and why</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                  <span>Feedback to tailor the product toward subsidized small-scale pilots</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                  <span>Especially: higher-level programming classes with smaller enrollment</span>
+                </li>
+              </ul>
             </div>
           </div>
         </section>
 
-        {/* About */}
-        <section id="about" className="mt-14 md:mt-20 pb-16">
-          <SectionHeading eyebrow="About" title="Neuron is the first product from Ceria" />
+        {/* SECTION 6 — ABOUT */}
+        <section id="about" className="mt-20 md:mt-24 pb-16">
+          <h2 className="font-serif text-2xl md:text-3xl tracking-tight">Neuron is the first product from Ceria</h2>
 
           <div className="mt-8 grid gap-6 md:grid-cols-12">
-            <div className="md:col-span-7 rounded-2xl border border-border bg-card/60 shadow-sm p-6">
+            <div className="md:col-span-7 rounded-3xl border border-black/10 bg-white/40 shadow-sm p-6 md:p-8">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Ceria is building elegant, enterprise-grade software for higher education. Neuron is our first
-                product — focused on responsible, learning-first AI for programming education.
+                Ceria builds elegant, enterprise-grade software for higher education. Neuron focuses on responsible, learning-first AI for programming courses.
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <PersonCard
                   name="Drake Bartolai"
-                  meta="Computer Engineering, UIUC"
-                  desc="Technical lead; background in education and technology."
+                  role="Technical lead"
+                  background="Computer Engineering, UIUC"
                 />
                 <PersonCard
                   name="Charles Economou"
-                  meta="Accountancy, Illinois State University"
-                  desc="Business lead; background in accounting and finance."
+                  role="Business lead"
+                  background="Accountancy, Illinois State University"
                 />
               </div>
             </div>
 
-            <div className="md:col-span-5 rounded-2xl border border-border bg-card/60 shadow-sm p-6">
-              <h3 className="font-medium">Links</h3>
-              <div className="mt-4 space-y-2 text-sm">
-                <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="https://www.linkedin.com/in/drake-bartolai/">
+            <div className="md:col-span-5 rounded-3xl border border-black/10 bg-white/40 shadow-sm p-6 md:p-8">
+              <h3 className="text-sm font-medium mb-4">Links</h3>
+              <div className="space-y-2 text-sm">
+                <a className="block rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white/80 transition-colors" href="https://www.linkedin.com/in/drake-bartolai/">
                   Drake Bartolai
-                  <span className="block text-xs text-muted-foreground">Find Drake on LinkedIn</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">LinkedIn</span>
                 </a>
-                <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="https://www.linkedin.com/in/charles-economou/">
-                  Charleie Economou
-                  <span className="block text-xs text-muted-foreground">Find Charlie on LinkedIn</span>
+                <a className="block rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white/80 transition-colors" href="https://www.linkedin.com/in/charles-economou/">
+                  Charles Economou
+                  <span className="block text-xs text-muted-foreground mt-0.5">LinkedIn</span>
                 </a>
-                <a className="block rounded-lg border border-border bg-card px-4 py-3 hover:bg-accent transition-colors" href="https://www.linkedin.com/in/drake-bartolai/">
+                <a className="block rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white/80 transition-colors" href="https://www.linkedin.com/company/ceria">
                   ceria
-                  <span className="block text-xs text-muted-foreground">Find ceria on LinkedIn</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">LinkedIn</span>
                 </a>
               </div>
 
@@ -469,83 +467,128 @@ export default function NeuronLandingPage() {
   )
 }
 
-function SectionHeading({
-  eyebrow,
-  title,
+function VideoDemo({
+  videoUrl,
+  posterUrl,
+  caption,
 }: {
-  eyebrow: string
-  title: string
+  videoUrl?: string
+  posterUrl?: string
+  caption: string
 }) {
-  return (
-    <div>
-      <div className="text-xs font-medium text-muted-foreground tracking-wide uppercase">{eyebrow}</div>
-      <h2 className="mt-2 font-serif text-2xl md:text-3xl tracking-tight">{title}</h2>
-    </div>
-  )
-}
+  const [isPlaying, setIsPlaying] = React.useState(false)
 
-function InfoCard({
-  title,
-  body,
-}: {
-  title: string
-  body: string
-}) {
   return (
-    <div className="rounded-2xl border border-border bg-card/60 shadow-sm p-6">
-      <div className="text-sm font-medium">{title}</div>
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{body}</p>
-    </div>
-  )
-}
-
-function FeaturePill({
-  title,
-  desc,
-}: {
-  title: string
-  desc: string
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3">
-      <div className="text-xs font-medium">{title}</div>
-      <div className="mt-1 text-xs text-muted-foreground leading-relaxed">{desc}</div>
-    </div>
-  )
-}
-
-function TimelineItem({
-  title,
-  body,
-}: {
-  title: string
-  body: string
-}) {
-  return (
-    <div className="flex gap-3">
-      <div className="mt-1.5 h-2 w-2 rounded-full bg-primary" />
-      <div>
-        <div className="text-sm font-medium">{title}</div>
-        <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{body}</p>
+    <div className="rounded-3xl border border-black/10 bg-white/40 shadow-sm overflow-hidden">
+      <div className="relative aspect-video bg-muted/30">
+        {!isPlaying && videoUrl ? (
+          <>
+            {posterUrl && (
+              <img src={posterUrl} alt="Video poster" className="w-full h-full object-cover" />
+            )}
+            <button
+              onClick={() => setIsPlaying(true)}
+              className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors"
+              aria-label="Play video"
+            >
+              <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 ml-1 text-foreground" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            </button>
+          </>
+        ) : videoUrl ? (
+          <video
+            src={videoUrl}
+            controls
+            autoPlay
+            className="w-full h-full"
+            onEnded={() => setIsPlaying(false)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted/20">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-white/60 flex items-center justify-center shadow-sm mx-auto mb-3">
+                <svg className="w-6 h-6 ml-1 text-muted-foreground" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <p className="text-xs text-muted-foreground">Video demo placeholder</p>
+            </div>
+          </div>
+        )}
       </div>
+      {caption && (
+        <p className="px-6 py-4 text-xs text-muted-foreground border-t border-black/10">
+          {caption}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function BenefitCard({
+  title,
+  sentence,
+  bullets,
+}: {
+  title: string
+  sentence: string
+  bullets: string[]
+}) {
+  return (
+    <div className="rounded-3xl border border-black/10 bg-white/40 shadow-sm p-6">
+      <h3 className="text-base font-medium mb-2">{title}</h3>
+      <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{sentence}</p>
+      <ul className="space-y-1.5 text-sm text-muted-foreground">
+        {bullets.map((bullet, i) => (
+          <li key={i} className="flex items-start gap-2">
+            <span className="mt-1.5 h-1 w-1 rounded-full bg-primary shrink-0" />
+            <span>{bullet}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function StepCard({
+  number,
+  title,
+  caption,
+}: {
+  number: number
+  title: string
+  caption: string
+}) {
+  return (
+    <div className="rounded-3xl border border-black/10 bg-white/40 shadow-sm p-6">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+          {number}
+        </div>
+        <h3 className="text-sm font-medium">{title}</h3>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">{caption}</p>
     </div>
   )
 }
 
 function PersonCard({
   name,
-  meta,
-  desc,
+  role,
+  background,
 }: {
   name: string
-  meta: string
-  desc: string
+  role: string
+  background: string
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card px-5 py-4">
+    <div className="rounded-2xl border border-black/10 bg-white/60 px-5 py-4">
       <div className="text-sm font-medium">{name}</div>
-      <div className="text-xs text-muted-foreground">{meta}</div>
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{desc}</p>
+      <div className="text-xs text-muted-foreground mt-1">{role}</div>
+      <div className="text-xs text-muted-foreground mt-1">{background}</div>
     </div>
   )
 }
