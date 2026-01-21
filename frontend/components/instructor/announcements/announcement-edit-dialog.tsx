@@ -17,6 +17,7 @@ import { File as FileIcon, X } from "lucide-react"
 import { Announcement, AnnouncementFile } from "@/hooks/use-announcements"
 import { useInstructorCourse } from "@/hooks/use-instructor-course"
 import { Spinner } from "@/components/ui/spinner"
+import { Input } from "@/components/ui/input"
 
 interface Props {
   announcement: Announcement
