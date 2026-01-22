@@ -347,9 +347,17 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                     violations=violations
                 )
                 
-                await LogService.insert_message(db_conn, thread_id, ChatRole.system, system_msg)
+                system_message_id = await LogService.insert_message(db_conn, thread_id, ChatRole.system, system_msg)
                 # Update thread summary after assistant message
                 await ThreadService.update_thread_summary_from_messages(db_conn, thread_id, user_id)
+                
+                # Check if FALLBACK rules exist in level configuration
+                fallback_rules = PromptService.extract_fallback_rules(level)
+                has_fallback = len(fallback_rules) > 0
+                
+                # Emit violation event with metadata for fallback functionality
+                yield f"event: violation\ndata: {json.dumps({'has_fallback': has_fallback, 'system_message_id': str(system_message_id), 'original_message': first_message})}\n\n"
+                
                 # Send the error message as tokens so it displays in the chat
                 yield f"event: token\ndata: {json.dumps({'content': system_msg})}\n\n"
                 yield f"event: done\ndata: {json.dumps({})}\n\n"

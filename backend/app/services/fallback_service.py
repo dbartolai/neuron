@@ -31,152 +31,49 @@ class FallbackService:
     - Level-aware: knows what IS allowed at each level
     """
 
-    # Pedagogical fallback templates
+    # Simplified fallback templates (3-4 sentences, no markdown)
     TEMPLATES = {
-        ViolationType.CODE_GENERATION_DENIED: {
-            "acknowledge": "I understand you'd like me to generate code for {topic}.",
-            "restriction": (
-                "At your current **writing level {level}**, I cannot provide actual code implementations. "
-                "This restriction helps you build problem-solving skills by working through the logic yourself."
-            ),
-            "offer_help": (
-                "However, I can help you in these ways:\n"
-                "- Explain the **concepts** behind {topic} in plain language\n"
-                "- Discuss **algorithmic approaches** at a high level\n"
-                "- Answer questions about **how {topic} works** conceptually\n"
-                "- Clarify any **course materials** related to this topic"
-            ),
-            "next_steps": (
-                "To move forward:\n"
-                "1. **Ask me**: 'Can you explain how {topic} works conceptually?'\n"
-                "2. **Try**: Sketch out your approach in words (no code yet)\n"
-                "3. **Check with me**: Share your verbal plan and I'll help refine it"
-            ),
-            "escalation": (
-                "\n\n*If you need code assistance, ask your instructor about raising your writing level, "
-                "or use the Testing/Debugging threads at higher levels.*"
-            )
-        },
+        ViolationType.CODE_GENERATION_DENIED: (
+            "I understand you'd like me to generate code, but at your current writing level {level}, "
+            "I cannot provide actual code implementations. This restriction helps you build problem-solving skills "
+            "by working through the logic yourself. However, I can explain concepts, discuss algorithmic approaches, "
+            "or clarify course materials. Click 'Use Fallback' below to get AI-assisted guidance that works within your level constraints."
+        ),
         
-        ViolationType.CODE_ANALYSIS_DENIED: {
-            "acknowledge": "I see you've shared code and would like me to analyze it.",
-            "restriction": (
-                "At your current **{thread_type} level {level}**, I cannot analyze code directly. "
-                "This encourages you to build debugging intuition by articulating problems in your own words."
-            ),
-            "offer_help": (
-                "Here's how I can help instead:\n"
-                "- If you **describe what your code is trying to do** verbally, I can discuss the approach\n"
-                "- I can explain **concepts** related to your problem\n"
-                "- I can suggest **debugging strategies** (print statements, breakpoints, etc.)"
-            ),
-            "next_steps": (
-                "Try this:\n"
-                "1. **Describe your code's goal** in plain English (e.g., 'I'm trying to sort a list by...')\n"
-                "2. **Explain the issue** you're facing (e.g., 'I expected X but got Y')\n"
-                "3. **Ask me** for conceptual guidance based on that description"
-            ),
-            "escalation": (
-                "\n\n*For code-level debugging help, consider using a Debugging thread at a higher level, "
-                "or consult with your instructor.*"
-            )
-        },
+        ViolationType.CODE_ANALYSIS_DENIED: (
+            "I see you've shared code, but at your current {thread_type} level {level}, I cannot analyze code directly. "
+            "This encourages you to build debugging intuition by articulating problems in your own words. "
+            "Instead, try describing what your code is trying to do verbally, and I can discuss the approach conceptually. "
+            "Click 'Use Fallback' below for AI-assisted help that works within your level constraints."
+        ),
         
-        ViolationType.MULTIPLE_FUNCTIONS_DENIED: {
-            "acknowledge": "I understand you're asking for help with multiple functions or a larger system.",
-            "restriction": (
-                "At your current **writing level {level}**, I can only provide code for **one function at a time**. "
-                "This constraint helps you break down problems into manageable pieces."
-            ),
-            "offer_help": (
-                "I can still help you:\n"
-                "- Provide code for **one specific function** if you give me a clear specification\n"
-                "- Discuss **how the functions should interact** conceptually\n"
-                "- Explain **architecture and design patterns** at a high level\n"
-                "- Offer **pseudocode** for the overall structure"
-            ),
-            "next_steps": (
-                "To proceed:\n"
-                "1. **Pick one function** to focus on first\n"
-                "2. **Describe its purpose** clearly (inputs, outputs, behavior)\n"
-                "3. **Ask me** to help with just that function\n"
-                "4. Once that's working, come back for the next piece"
-            ),
-            "escalation": (
-                "\n\n*For multi-function code generation, ask your instructor about raising your writing level.*"
-            )
-        },
+        ViolationType.MULTIPLE_FUNCTIONS_DENIED: (
+            "I understand you're asking for help with multiple functions, but at your current writing level {level}, "
+            "I can only provide code for one function at a time. This constraint helps you break down problems into manageable pieces. "
+            "Please focus on one specific function and describe its purpose clearly. "
+            "Click 'Use Fallback' below to get AI-assisted guidance for your request."
+        ),
         
-        ViolationType.NO_VERBAL_SPEC: {
-            "acknowledge": "I'd like to help, but I need a bit more information about what you're trying to achieve.",
-            "restriction": (
-                "At **{thread_type} level {level}**, I need you to provide a **verbal specification** before I can generate code. "
-                "This ensures you're thinking through the requirements before implementation."
-            ),
-            "offer_help": (
-                "To give you the best help, please tell me:\n"
-                "- What should this function **do**? (Purpose)\n"
-                "- What **inputs** does it take?\n"
-                "- What **output** should it produce?\n"
-                "- Any **constraints** or edge cases to consider?"
-            ),
-            "next_steps": (
-                "Next steps:\n"
-                "1. **Write out** the function's purpose and requirements in plain English\n"
-                "2. **Share that spec** with me\n"
-                "3. I'll then provide code that matches your specification"
-            ),
-            "escalation": ""
-        },
+        ViolationType.NO_VERBAL_SPEC: (
+            "I'd like to help, but at {thread_type} level {level}, I need you to provide a verbal specification before I can generate code. "
+            "Please tell me what the function should do, what inputs it takes, and what output it should produce. "
+            "This ensures you're thinking through the requirements before implementation. "
+            "Click 'Use Fallback' below for AI-assisted help with your request."
+        ),
         
-        ViolationType.SCOPE_TOO_BROAD: {
-            "acknowledge": "I can see you're working on a substantial feature or system.",
-            "restriction": (
-                "At your current level, I can't scaffold entire applications or large frameworks. "
-                "My role is to help you learn by tackling **focused, specific problems**."
-            ),
-            "offer_help": (
-                "Let's narrow the scope:\n"
-                "- Break this into **smaller pieces** and we'll tackle one at a time\n"
-                "- I can discuss **high-level architecture** conceptually\n"
-                "- I can help with **one specific component or function**\n"
-                "- I can explain **design patterns** that might apply"
-            ),
-            "next_steps": (
-                "Try this approach:\n"
-                "1. **Identify the smallest meaningful piece** of your system\n"
-                "2. **Ask about that piece specifically** (e.g., one function, one module)\n"
-                "3. Once that's clear, move to the next piece\n"
-                "4. I'll help you connect them conceptually"
-            ),
-            "escalation": (
-                "\n\n*For larger project help, consider scheduling office hours with your instructor.*"
-            )
-        },
+        ViolationType.SCOPE_TOO_BROAD: (
+            "I can see you're working on a substantial feature, but at your current level, I can't scaffold entire applications. "
+            "My role is to help you learn by tackling focused, specific problems. "
+            "Please break this into smaller pieces and ask about one specific component or function at a time. "
+            "Click 'Use Fallback' below for AI-assisted guidance that works within your level constraints."
+        ),
         
-        ViolationType.GENERIC: {
-            "acknowledge": "I understand you have a question about {topic}.",
-            "restriction": (
-                "Your request doesn't align with the current course level constraints. "
-                "These constraints ensure you're building the right skills at the right pace."
-            ),
-            "offer_help": (
-                "Here's what I can do:\n"
-                "- Answer **conceptual questions** about programming topics\n"
-                "- Explain **course materials** and clarify concepts\n"
-                "- Provide **strategic guidance** on how to approach problems\n"
-                "- Discuss **debugging strategies** and problem-solving techniques"
-            ),
-            "next_steps": (
-                "To get the best help:\n"
-                "1. **Rephrase your question** to focus on concepts or strategy\n"
-                "2. **Specify what you're trying to understand** (not what you want me to build)\n"
-                "3. **Ask about one thing at a time** so I can give focused guidance"
-            ),
-            "escalation": (
-                "\n\n*If you're unsure what's allowed, ask your instructor about your current level settings.*"
-            )
-        }
+        ViolationType.GENERIC: (
+            "Your request doesn't align with the current course level constraints, which ensure you're building the right skills at the right pace. "
+            "I can answer conceptual questions, explain course materials, or provide strategic guidance on problem-solving. "
+            "Try rephrasing your question to focus on concepts or strategy rather than asking me to build something. "
+            "Click 'Use Fallback' below for AI-assisted help that works within your level constraints."
+        )
     }
 
     @staticmethod
@@ -188,66 +85,28 @@ class FallbackService:
         violations: Optional[List[Dict]] = None
     ) -> str:
         """
-        Generate a structured, pedagogical fallback response.
+        Generate a concise, plain-text fallback response.
         
         Args:
             violation_type: Type of violation that triggered fallback
             thread_type: 'writing', 'testing', or 'debugging'
             level_index: Current level index (0-7 for writing, 0-5 for testing/debugging)
             student_prompt: Original student request
-            violations: Optional list of specific violations from rule check
+            violations: Optional list of specific violations from rule check (not used in simplified version)
             
         Returns:
-            Markdown-formatted fallback response that:
-            1. Acknowledges the request
-            2. Explains the restriction pedagogically
-            3. Offers alternative help within constraints
-            4. Suggests concrete next steps
+            Plain text fallback response (3-4 sentences) explaining the restriction
         """
         template = FallbackService.TEMPLATES.get(
             violation_type,
             FallbackService.TEMPLATES[ViolationType.GENERIC]
         )
         
-        # Extract topic from prompt (simple heuristic: first 5 words or until punctuation)
-        topic_words = student_prompt.split()[:5]
-        topic = " ".join(topic_words).rstrip('.,!?')
-        if not topic:
-            topic = "your request"
-        
-        # Build the structured response
-        response_parts = []
-        
-        # Section 1: Acknowledge + Restriction
-        response_parts.append("## Understanding Your Request")
-        response_parts.append(template["acknowledge"].format(topic=topic))
-        response_parts.append("\n" + template["restriction"].format(
+        # Format the template with level and thread type
+        return template.format(
             level=level_index,
             thread_type=thread_type.title()
-        ))
-        
-        # Section 2: What I CAN Do
-        response_parts.append("\n## What I Can Help With")
-        response_parts.append(template["offer_help"].format(topic=topic))
-        
-        # Section 3: Next Steps
-        response_parts.append("\n## Suggested Next Steps")
-        response_parts.append(template["next_steps"].format(topic=topic))
-        
-        # Section 4: Escalation (if provided)
-        if template["escalation"]:
-            response_parts.append(template["escalation"])
-        
-        # Add specific violations if provided
-        if violations:
-            response_parts.append("\n\n---")
-            response_parts.append("**Technical Details** (for your reference):")
-            for v in violations:
-                rule_num = v.get("rule", "?")
-                reason = v.get("reason", "Unspecified")
-                response_parts.append(f"- Rule #{rule_num}: {reason}")
-        
-        return "\n".join(response_parts)
+        )
 
     @staticmethod
     def infer_violation_type(violations: List[Dict], student_prompt: str) -> ViolationType:

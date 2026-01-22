@@ -15,6 +15,8 @@ type MessageLogProps = {
     threadId?: string
     sendMessage?: (content: string) => Promise<void>
     showFeedback?: boolean
+    useFallback?: (originalMessage: string, systemMessageId: string) => Promise<void>
+    getViolationMetadata?: (messageId?: string) => {hasFallback: boolean, originalMessage: string} | null
 }
 
 
@@ -25,7 +27,9 @@ export default function MessageLog( {
     streamingContent = "",
     threadId,
     sendMessage,
-    showFeedback = true
+    showFeedback = true,
+    useFallback,
+    getViolationMetadata
 }: MessageLogProps ) {
     
     // Track which user message is being edited (by message index)
@@ -120,6 +124,16 @@ export default function MessageLog( {
                     />
                 )
             } else if (message.role === ChatRole.SYSTEM) {
+                const violationMeta = message.id && getViolationMetadata ? getViolationMetadata(message.id) : null;
+                const hasFallback = violationMeta?.hasFallback || false;
+                const originalMessage = violationMeta?.originalMessage || null;
+                
+                const handleUseFallback = () => {
+                    if (useFallback && originalMessage && message.id) {
+                        useFallback(originalMessage, message.id);
+                    }
+                };
+                
                 return (
                     <SystemMessage
                         content={message.content}
@@ -127,6 +141,10 @@ export default function MessageLog( {
                         showFeedback={showFeedback}
                         lastUserMessage={findLastUserMessageForSystem(index)}
                         onStartEdit={() => handleStartEditUserMessage(index)}
+                        hasFallback={hasFallback}
+                        threadId={threadId}
+                        originalMessage={originalMessage || undefined}
+                        onUseFallback={hasFallback ? handleUseFallback : undefined}
                         key={message.id || index}
                     />
                 )

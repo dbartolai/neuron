@@ -80,6 +80,10 @@ export default function CoursePage() {
   const drainIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fullContentRef = useRef<string>("");
   const threadIdRef = useRef<string | null>(null);
+  
+  // Track violation metadata for system messages (keyed by system message ID)
+  const violationMetadataRef = useRef<Map<string, {hasFallback: boolean, originalMessage: string}>>(new Map());
+  const isErrorResponseRef = useRef<boolean>(false);
 
   // Start draining the token queue at a fixed interval
   const startDraining = useCallback(() => {
@@ -166,10 +170,48 @@ export default function CoursePage() {
             } catch (e) {
               console.error("Failed to parse thread_created event", e);
             }
+          } else if (event.event === 'violation') {
+            try {
+              const data = JSON.parse(event.data);
+              // Store violation metadata for later use
+              if (data.has_fallback && data.system_message_id && data.original_message) {
+                violationMetadataRef.current.set(data.system_message_id, {
+                  hasFallback: data.has_fallback,
+                  originalMessage: data.original_message
+                });
+              }
+              // Mark as error response (rule violation) so we know to split tokens
+              isErrorResponseRef.current = true;
+            } catch (e) {
+              // Ignore parse errors
+            }
+          } else if (event.event === 'error') {
+            try {
+              const data = JSON.parse(event.data);
+              // Mark as error response (rule violation)
+              isErrorResponseRef.current = true;
+              // Split error message into words for smooth animation
+              const words = data.message.split(' ');
+              for (let i = 0; i < words.length; i++) {
+                tokenQueueRef.current.push(words[i] + (i < words.length - 1 ? ' ' : ''));
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
           } else if (event.event === 'token') {
             try {
               const data = JSON.parse(event.data);
-              tokenQueueRef.current.push(data.content);
+              // If this is a violation response, split the token content into words for smooth streaming
+              if (isErrorResponseRef.current && data.content) {
+                // Split large token content into words for smooth animation
+                const words = data.content.split(' ');
+                for (let i = 0; i < words.length; i++) {
+                  tokenQueueRef.current.push(words[i] + (i < words.length - 1 ? ' ' : ''));
+                }
+              } else {
+                // Normal token streaming
+                tokenQueueRef.current.push(data.content);
+              }
             } catch (e) {
               // Ignore parse errors
             }
@@ -202,13 +244,24 @@ export default function CoursePage() {
 
       // Store completed messages locally
       const finalContent = fullContentRef.current;
+      // Check if this was an error response (rule violation)
+      const messageRole = isErrorResponseRef.current ? ChatRole.SYSTEM : ChatRole.ASSISTANT;
+      // Try to find system message ID from violation metadata
+      let systemMessageId: string | undefined = undefined;
+      if (isErrorResponseRef.current) {
+        const violationEntries = Array.from(violationMetadataRef.current.entries());
+        if (violationEntries.length > 0) {
+          systemMessageId = violationEntries[violationEntries.length - 1][0];
+        }
+      }
       setLocalMessages([
         { role: ChatRole.STUDENT, content: messageContent },
-        { role: ChatRole.ASSISTANT, content: finalContent }
+        { id: systemMessageId, role: messageRole, content: finalContent }
       ]);
       setIsStreaming(false);
       setIsCreating(false);
       setStreamingContent("");
+      isErrorResponseRef.current = false;
 
       // Switch to thread mode and update URL without navigation
       if (threadIdRef.current) {
@@ -270,6 +323,159 @@ export default function CoursePage() {
 
   // Show skeleton while loading or when access is not yet determined
   const isLoading = courseLoading || access === null;
+  
+  // Fallback function for course page (when thread doesn't exist yet)
+  const useFallbackLocal = useCallback(async (originalMessage: string, systemMessageId: string) => {
+    if (!threadIdRef.current) return;
+    
+    setIsStreaming(true);
+    setStreamingContent("");
+    
+    // Reset token queue for new stream
+    tokenQueueRef.current = [];
+    fullContentRef.current = "";
+    isErrorResponseRef.current = false;
+    startDraining();
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
+    try {
+      const token = await getAccessToken();
+      
+      const res = await fetch(`${getApiUrl()}/chat/fallback`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          thread_id: threadIdRef.current,
+          original_message: originalMessage,
+          system_message_id: systemMessageId
+        }),
+        signal: controller.signal,
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Fallback request failed: ${res.status}`);
+      }
+      
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error("No response body");
+      }
+      
+      const decoder = new TextDecoder();
+      let buffer = "";
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        const events = parseSSEEvents(buffer);
+        
+        for (const event of events) {
+          if (event.event === 'token') {
+            try {
+              const data = JSON.parse(event.data);
+              tokenQueueRef.current.push(data.content);
+            } catch (e) {
+              // Ignore parse errors
+            }
+          } else if (event.event === 'error') {
+            try {
+              const data = JSON.parse(event.data);
+              isErrorResponseRef.current = true;
+              const words = data.message.split(' ');
+              for (let i = 0; i < words.length; i++) {
+                tokenQueueRef.current.push(words[i] + (i < words.length - 1 ? ' ' : ''));
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          } else if (event.event === 'done') {
+            break;
+          }
+        }
+        
+        const lastDoubleNewline = buffer.lastIndexOf('\n\n');
+        if (lastDoubleNewline !== -1) {
+          buffer = buffer.slice(lastDoubleNewline + 2);
+        }
+      }
+      
+      // Wait for queue to fully drain
+      const waitForDrain = () => {
+        return new Promise<void>((resolve) => {
+          const check = setInterval(() => {
+            if (tokenQueueRef.current.length === 0) {
+              clearInterval(check);
+              resolve();
+            }
+          }, 50);
+        });
+      };
+      
+      await waitForDrain();
+      stopDraining();
+      
+      // Update local messages with fallback response
+      const finalContent = fullContentRef.current;
+      const messageRole = isErrorResponseRef.current ? ChatRole.SYSTEM : ChatRole.ASSISTANT;
+      setLocalMessages((prev) => [
+        ...prev,
+        { role: messageRole, content: finalContent }
+      ]);
+      
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        stopDraining();
+        tokenQueueRef.current = [];
+        fullContentRef.current = "";
+        return;
+      }
+      console.error("Error in fallback:", err);
+    } finally {
+      setIsStreaming(false);
+      setStreamingContent("");
+      abortControllerRef.current = null;
+    }
+  }, [startDraining, stopDraining]);
+  
+  const getViolationMetadataLocal = useCallback((messageId?: string): {hasFallback: boolean, originalMessage: string} | null => {
+    if (!messageId) return null;
+    return violationMetadataRef.current.get(messageId) || null;
+  }, []);
+  
+  // Merged getViolationMetadata that checks both local and useChat's refs
+  const getViolationMetadataMerged = useCallback((messageId?: string): {hasFallback: boolean, originalMessage: string} | null => {
+    if (!messageId) return null;
+    // First check local ref (for messages created during thread creation)
+    const localMeta = violationMetadataRef.current.get(messageId);
+    if (localMeta) return localMeta;
+    // Then check useChat's ref (for messages loaded from server)
+    if (activeThreadId && chat.getViolationMetadata) {
+      return chat.getViolationMetadata(messageId);
+    }
+    return null;
+  }, [activeThreadId, chat]);
+  
+  // Merged useFallback that tries chat's fallback first, then local fallback
+  const useFallbackMerged = useCallback(async (originalMessage: string, systemMessageId: string) => {
+    // Try chat's fallback first if available and thread is active
+    if (activeThreadId && chat.useFallback) {
+      return chat.useFallback(originalMessage, systemMessageId);
+    }
+    // Fall back to local fallback
+    return useFallbackLocal(originalMessage, systemMessageId);
+  }, [activeThreadId, chat, useFallbackLocal]);
+  
+  // Use merged fallback function
+  const useFallback = useFallbackMerged;
+  const getViolationMetadata = activeThreadId ? getViolationMetadataMerged : getViolationMetadataLocal;
 
   return (
         <>
@@ -382,6 +588,8 @@ export default function CoursePage() {
                 streamingContent={displayStreamingContent}
                 threadId={activeThreadId || undefined}
                 sendMessage={activeThreadId ? chat.sendMessage : undefined}
+                useFallback={useFallback}
+                getViolationMetadata={getViolationMetadata}
               />
             )}
           </div>

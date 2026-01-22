@@ -67,3 +67,17 @@ class PromptService:
         )
         numbered = "\n".join(guardrails)
         return f"{header}\n{numbered}"
+
+    @staticmethod
+    def extract_fallback_rules(level: dict) -> list[str]:
+        """Extract FALLBACK rules from a level's guardrails.
+        
+        Args:
+            level: Level dictionary with 'guardrails' key containing list of rule strings
+            
+        Returns:
+            List of fallback rule strings (rules starting with 'FALLBACK:')
+        """
+        guardrails = level.get("guardrails", [])
+        fallback_rules = [rule for rule in guardrails if rule.startswith("FALLBACK:")]
+        return fallback_rules

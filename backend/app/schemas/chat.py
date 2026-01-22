@@ -36,3 +36,8 @@ class ChatFeedbackResponse(BaseModel):
     thumbs_down: bool
     feedback_ceria: Optional[str] = None
     feedback_instructor: Optional[str] = None
+
+class ChatFallbackRequest(BaseModel):
+    thread_id: UUID
+    original_message: str
+    system_message_id: UUID

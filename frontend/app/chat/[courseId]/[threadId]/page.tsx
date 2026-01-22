@@ -28,7 +28,7 @@ export default function ThreadPage() {
   }>();
 
   const {courseName} = useCourse(courseId);
-  const {threadName, messages, sendMessage, isStreaming, streamingContent} = useChat(threadId);
+  const {threadName, messages, sendMessage, isStreaming, streamingContent, useFallback, getViolationMetadata} = useChat(threadId);
   const [input, setInput] = useState("");
 
   // Wrapper for sendMessage that clears input
@@ -74,6 +74,8 @@ export default function ThreadPage() {
                 streamingContent={streamingContent}
                 threadId={threadId}
                 sendMessage={sendMessage}
+                useFallback={useFallback}
+                getViolationMetadata={getViolationMetadata}
               />
             </div>
           </div>
