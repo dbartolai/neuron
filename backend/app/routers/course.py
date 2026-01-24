@@ -13,6 +13,7 @@ from app.services.enroll_service import EnrollService
 from app.dependencies.levels import GLOBAL_INVARIANTS
 from app.schemas.user import User
 from app.services.fallback_service import FallbackService, ViolationType
+from app.services.topics_service import TopicsService
 from app.schemas.course import CoursePolicy
 from app.schemas.chat import ChatRole, ChatResponse, MessageEntry
 from uuid import UUID
@@ -36,7 +37,15 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
     if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
         raise HTTPException(401, "Not authorized to access this course")
     
-    # Fetch course levels from database
+    # Determine the appropriate level based on thread_type
+    thread_type: ThreadType = body.thread_type
+    if thread_type is None:
+        thread_type = ThreadType.writing
+    
+    # Get course rules from database
+    level = await PromptService.get_course_rules(db, course_id, thread_type)
+    
+    # Get level_idx for fallback service (may be None for custom rules)
     levels_query = """
         SELECT writing_level, testing_level, debugging_level
         FROM courses
@@ -46,10 +55,6 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
     if course_row is None:
         raise HTTPException(status_code=404, detail="course not found")
 
-    # Determine the appropriate level based on thread_type
-    thread_type: ThreadType = body.thread_type
-    if thread_type is None:
-        thread_type = ThreadType.writing
     if thread_type == ThreadType.writing:
         level_idx = course_row["writing_level"]
     elif thread_type == ThreadType.testing:
@@ -58,8 +63,6 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
         level_idx = course_row["debugging_level"]
     else:
         raise HTTPException(status_code=400, detail="invalid thread type")
-
-    level = PromptService.get_level(thread_type, level_idx)
 
     user_id = UUID(user["id"])
 
@@ -75,6 +78,39 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
 
     # Add first message to logs
     await LogService.insert_message(db, thread_id, ChatRole.student, body.first_message)
+
+    # Detect and store topic for new prompt architecture
+    try:
+        detected_topic = await TopicsService.detect_topic_from_prompt(
+            db=db,
+            course_id=course_id,
+            student_prompt=body.first_message,
+            user_id=user_id,
+            thread_id=thread_id
+        )
+        if detected_topic:
+            await ThreadService.set_thread_topic(db, thread_id, detected_topic)
+    except Exception as e:
+        # Don't fail thread creation if topic detection fails
+        print(f"Failed to detect topic for thread {thread_id}: {str(e)}")
+    
+    # Also classify thread into a tag for backward compatibility
+    try:
+        topics = await TopicsService.get_topics(db, course_id)
+        if topics:
+            topic = await TopicsService.classify_thread_to_topic(
+                db=db,
+                thread_id=thread_id,
+                thread_title=new_title,
+                first_message=body.first_message,
+                topics=topics,
+                user_id=user_id,
+            )
+            if topic:
+                await ThreadService.update_thread_tag(db, thread_id, topic)
+    except Exception as e:
+        # Don't fail thread creation if classification fails
+        print(f"Failed to classify thread {thread_id} into topic: {str(e)}")
 
     # Stage 1: Student rules evaluation
     passed, details = await ChatService.evaluate_student_rules(
@@ -213,7 +249,15 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
     if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
         raise HTTPException(401, "Not authorized to access this course")
     
-    # Fetch course levels from database
+    # Determine the appropriate level based on thread_type
+    thread_type: ThreadType = body.thread_type
+    if thread_type is None:
+        thread_type = ThreadType.writing
+    
+    # Get course rules from database
+    level = await PromptService.get_course_rules(db, course_id, thread_type)
+    
+    # Get level_idx for fallback service (may be None for custom rules)
     levels_query = """
         SELECT writing_level, testing_level, debugging_level
         FROM courses
@@ -223,10 +267,6 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
     if course_row is None:
         raise HTTPException(status_code=404, detail="course not found")
 
-    # Determine the appropriate level based on thread_type
-    thread_type: ThreadType = body.thread_type
-    if thread_type is None:
-        thread_type = ThreadType.writing
     if thread_type == ThreadType.writing:
         level_idx = course_row["writing_level"]
     elif thread_type == ThreadType.testing:
@@ -235,8 +275,6 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
         level_idx = course_row["debugging_level"]
     else:
         raise HTTPException(status_code=400, detail="invalid thread type")
-
-    level = PromptService.get_level(thread_type, level_idx)
 
     user_id = UUID(user["id"])
 
@@ -260,6 +298,39 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
     await LogService.insert_message(db, thread_id, ChatRole.student, body.first_message)
 
     user_id = UUID(user["id"])
+
+    # Detect and store topic for new prompt architecture
+    try:
+        detected_topic = await TopicsService.detect_topic_from_prompt(
+            db=db,
+            course_id=course_id,
+            student_prompt=body.first_message,
+            user_id=user_id,
+            thread_id=thread_id
+        )
+        if detected_topic:
+            await ThreadService.set_thread_topic(db, thread_id, detected_topic)
+    except Exception as e:
+        # Don't fail thread creation if topic detection fails
+        print(f"Failed to detect topic for thread {thread_id}: {str(e)}")
+    
+    # Also classify thread into a tag for backward compatibility
+    try:
+        topics = await TopicsService.get_topics(db, course_id)
+        if topics:
+            topic = await TopicsService.classify_thread_to_topic(
+                db=db,
+                thread_id=thread_id,
+                thread_title=new_title,
+                first_message=body.first_message,
+                topics=topics,
+                user_id=user_id,
+            )
+            if topic:
+                await ThreadService.update_thread_tag(db, thread_id, topic)
+    except Exception as e:
+        # Don't fail thread creation if classification fails
+        print(f"Failed to classify thread {thread_id} into topic: {str(e)}")
 
     # Stage 1: Student rules evaluation
     passed, details = await ChatService.evaluate_student_rules(

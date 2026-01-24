@@ -3,9 +3,11 @@
 # includes the /sidebar endpoint, which returns the most recent 5 chats in each course
 
 import asyncpg
-from typing import List
+from typing import List, Optional, Dict
 from app.schemas.course import UserCourse, NewCourse, CoursePolicy, PatchCourse, CourseFile, CourseFileRequest
 from app.services.user_service import UserService
+from app.services.rules_service import RulesService
+from app.schemas.thread import ThreadType
 from uuid import UUID
 from app.schemas.user import Student, EnrollmentResponse
 from fastapi import HTTPException
@@ -92,14 +94,59 @@ class CourseService:
     
     @staticmethod
     async def new_course(db: asyncpg.Connection, course: NewCourse, instructor_id: UUID):
+        """Create a new course and duplicate default rules for each mode.
         
+        Args:
+            db: Database connection
+            course: NewCourse object with course details
+            instructor_id: UUID of the instructor
+            
+        Returns:
+            UUID of the created course
+        """
+        # First create the course
         query: str = """
             INSERT INTO courses (name, code, instructor_id, writing_level, testing_level, debugging_level)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
         """
 
-        return await db.fetchval(query, course.name, course.code, instructor_id, course.writing_level, course.testing_level, course.debugging_level)
+        course_id = await db.fetchval(
+            query, 
+            course.name, 
+            course.code, 
+            instructor_id, 
+            course.writing_level, 
+            course.testing_level, 
+            course.debugging_level
+        )
+        
+        # Duplicate default rules for each mode and link them
+        writing_rules_id = await RulesService.duplicate_default_rules(
+            db, course_id, ThreadType.writing, course.writing_level
+        )
+        testing_rules_id = await RulesService.duplicate_default_rules(
+            db, course_id, ThreadType.testing, course.testing_level
+        )
+        debugging_rules_id = await RulesService.duplicate_default_rules(
+            db, course_id, ThreadType.debugging, course.debugging_level
+        )
+        
+        # Update course with rule IDs
+        update_query = """
+            UPDATE courses
+            SET writing_rules = $1, testing_rules = $2, debugging_rules = $3
+            WHERE id = $4
+        """
+        await db.execute(
+            update_query,
+            writing_rules_id,
+            testing_rules_id,
+            debugging_rules_id,
+            course_id
+        )
+        
+        return course_id
 
 
                     
@@ -145,6 +192,53 @@ class CourseService:
         if not changes:
             return await CourseService.get_course_policy(db, patch.id)
         
+        # Handle level changes - duplicate new defaults if level is being set
+        # Get current course state
+        current_query = """
+            SELECT writing_level, testing_level, debugging_level, writing_rules, testing_rules, debugging_rules
+            FROM courses
+            WHERE id = $1
+        """
+        current = await db.fetchrow(current_query, patch.id)
+        if current is None:
+            raise LookupError("course not found")
+        
+        # Check for level changes and duplicate rules if needed
+        if "writing_level" in changes:
+            new_level = changes["writing_level"]
+            if new_level is not None and current["writing_level"] != new_level:
+                # Duplicate new default rules
+                new_rules_id = await RulesService.duplicate_default_rules(
+                    db, patch.id, ThreadType.writing, new_level
+                )
+                # Update the writing_rules foreign key
+                await db.execute(
+                    "UPDATE courses SET writing_rules = $1 WHERE id = $2",
+                    new_rules_id, patch.id
+                )
+        
+        if "testing_level" in changes:
+            new_level = changes["testing_level"]
+            if new_level is not None and current["testing_level"] != new_level:
+                new_rules_id = await RulesService.duplicate_default_rules(
+                    db, patch.id, ThreadType.testing, new_level
+                )
+                await db.execute(
+                    "UPDATE courses SET testing_rules = $1 WHERE id = $2",
+                    new_rules_id, patch.id
+                )
+        
+        if "debugging_level" in changes:
+            new_level = changes["debugging_level"]
+            if new_level is not None and current["debugging_level"] != new_level:
+                new_rules_id = await RulesService.duplicate_default_rules(
+                    db, patch.id, ThreadType.debugging, new_level
+                )
+                await db.execute(
+                    "UPDATE courses SET debugging_rules = $1 WHERE id = $2",
+                    new_rules_id, patch.id
+                )
+        
         set_parts: list[str] = []
         values: list[str] = []
         i=1
@@ -167,7 +261,34 @@ class CourseService:
         if row is None:
             raise LookupError("course not found")
 
-        return CoursePolicy(**dict(row)) 
+        return CoursePolicy(**dict(row))
+    
+    @staticmethod
+    async def get_course_rules_ids(db: asyncpg.Connection, course_id: UUID) -> Dict[str, Optional[UUID]]:
+        """Get all three rules IDs for a course.
+        
+        Args:
+            db: Database connection
+            course_id: Course UUID
+            
+        Returns:
+            Dictionary with writing_rules, testing_rules, debugging_rules UUIDs
+        """
+        query = """
+            SELECT writing_rules, testing_rules, debugging_rules
+            FROM courses
+            WHERE id = $1
+        """
+        
+        row = await db.fetchrow(query, course_id)
+        if row is None:
+            raise LookupError("course not found")
+        
+        return {
+            "writing_rules": row["writing_rules"],
+            "testing_rules": row["testing_rules"],
+            "debugging_rules": row["debugging_rules"],
+        } 
 
 
     @staticmethod
@@ -315,7 +436,7 @@ class CourseService:
     async def get_thread_tags(db: asyncpg.Connection, course_id: UUID) -> List[str] | None:
         """Get the thread_tags array from courses table."""
         query = """
-            SELECT thread_tags
+            SELECT topics
             FROM courses
             WHERE id = $1
         """
@@ -327,7 +448,7 @@ class CourseService:
         """Update thread_tags array."""
         query = """
             UPDATE courses
-            SET thread_tags = $2
+            SET topics = $2
             WHERE id = $1
         """
         await db.execute(query, course_id, tags)

@@ -175,8 +175,8 @@ export default function InsightsPage() {
           </div>
         </header>
         <div className="flex min-h-0 flex-col gap-4 p-4 pt-0 mb-8 overflow-x-hidden">
-          <H1 text={courseName} />
-          <Muted text={courseCode} />
+        <H1 text={"Insights"} />
+        <Muted text={"Understand your students' questions and concerns"} />
         </div>
         <div className="flex flex-col items-center justify-center py-20">
           <Muted text="You can see insights once students start to use Neuron" />
@@ -195,8 +195,8 @@ export default function InsightsPage() {
           </div>
         </header>
         <div className="flex min-h-0 flex-col gap-4 p-4 pt-0 mb-8 overflow-x-hidden">
-          <H1 text={courseName} />
-          <Muted text={courseCode} />
+        <H1 text={"Insights"} />
+        <Muted text={"Understand your students' questions and concerns"} />
         </div>
         <div className="flex flex-col items-center justify-center py-20">
           {loading ? (
@@ -229,8 +229,8 @@ export default function InsightsPage() {
         </div>
       </header>
       <div className="flex min-h-0 flex-col gap-4 p-4 pt-0 mb-8 overflow-x-hidden">
-        <H1 text={courseName} />
-        <Muted text={courseCode} />
+        <H1 text={"Insights"} />
+        <Muted text={"Understand your students' questions and concerns"} />
       </div>
       <div className="flex flex-col gap-6 p-4 w-5xl mx-auto">
         <div className="flex items-center justify-between">

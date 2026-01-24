@@ -40,7 +40,7 @@ export default function CoursePage() {
   const {courseName, courseCode, writingLevel, testingLevel, debuggingLevel, files, updateCourse, refetchFiles } = useInstructorCourse(courseId);
   console.log("NAME: ", courseName)
 
-  const handleLevelChange = async (levelType: string, levelIdx: number) => {
+  const handleLevelChange = async (levelType: string, levelIdx: number | undefined) => {
     const patch: { id: string; writing_level?: number; testing_level?: number; debugging_level?: number } = {
       id: courseId
     };
@@ -68,9 +68,9 @@ export default function CoursePage() {
             <Muted text={courseCode}/>
         </div>
         <div className="flex justify-start min-h-0 gap-[5%] p-4 pt-0 overflow-x-hidden mx-auto w-[60%] min-w-[720px]">
-            <div className="w-[30%]"><Level id={`w-${writingLevel}`} courseId={courseId} onLevelChange={handleLevelChange}/></div>
-            <div className="w-[30%]"><Level id={`t-${testingLevel}`} courseId={courseId} onLevelChange={handleLevelChange}/></div>
-            <div className="w-[30%]"><Level id={`d-${debuggingLevel}`} courseId={courseId} onLevelChange={handleLevelChange}/></div>
+            <div className="w-[30%]"><Level id={`w-${writingLevel ?? 'custom'}`} courseId={courseId} onLevelChange={handleLevelChange} level={writingLevel}/></div>
+            <div className="w-[30%]"><Level id={`t-${testingLevel ?? 'custom'}`} courseId={courseId} onLevelChange={handleLevelChange} level={testingLevel}/></div>
+            <div className="w-[30%]"><Level id={`d-${debuggingLevel ?? 'custom'}`} courseId={courseId} onLevelChange={handleLevelChange} level={debuggingLevel}/></div>
         </div>
         <div className="flex flex-4 mt-10 justify-around">
           <div className="flex flex-col w-md gap-4">

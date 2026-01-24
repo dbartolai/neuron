@@ -53,20 +53,14 @@ export default function AnnouncementsPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
+        <header className="flex h-16 shrink-0 items-center gap-2">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+          </div>
+        </header>
+        <div className="flex min-h-0 flex-col gap-4 p-4 pt-0 mb-8 overflow-x-hidden">
+        <H1 text={"Announcements"} />
         </div>
-      </header>
-      <div className="flex min-h-0 flex-col gap-4 p-4 pt-0 mb-8 overflow-x-hidden">
-        <div className="flex items-center justify-between">
-          <H1 text="Announcements" />
-          <Button onClick={() => setShowCreateCard(!showCreateCard)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Announcement
-          </Button>
-        </div>
-      </div>
       <div className="flex flex-col gap-4 p-4 pt-0 max-w-4xl mx-auto w-full">
         {showCreateCard && (
           <AnnouncementInputCard

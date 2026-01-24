@@ -18,6 +18,19 @@ from app.services.announcement_service import AnnouncementService
 from app.schemas.course import NewCourse, PatchCourse, CourseFileRequest, CourseFile
 from app.schemas.insights import InsightsStatus, TagStatistics, UpdateTagsRequest, UpdateThreadTagRequest
 from app.schemas.announcement import AnnouncementRequest, AnnouncementUpdate
+from app.schemas.rules import CourseRulesRequest, CourseRulesResponse, ResetRulesRequest, RuleObject
+from app.services.rules_service import RulesService
+from app.services.topics_service import TopicsService
+from app.schemas.thread import ThreadType
+from app.schemas.topics import (
+    TopicsListResponse,
+    CreateTopicRequest,
+    UpdateTopicRequest,
+    DeleteTopicRequest,
+    GenerateFromSyllabusRequest,
+    GenerateFromSyllabusResponse,
+    ReclassifyThreadsResponse,
+)
 from openai import OpenAI
 
 
@@ -432,6 +445,139 @@ async def update_thread_tag(
     await ThreadService.update_thread_tag(db, thread_id, body.tag)
     return {"thread_id": str(thread_id), "tag": body.tag}
 
+# Topics Management Endpoints
+
+@router.get(path="/courses/{course_id}/topics", response_model=TopicsListResponse)
+async def get_topics(course_id: UUID, db = Depends(get_db), user: User = Depends(me)):
+    """Get all topics for a course."""
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    topics = await TopicsService.get_topics(db, course_id)
+    return {"topics": topics}
+
+@router.post(path="/courses/{course_id}/topics", response_model=TopicsListResponse)
+async def create_topic(
+    course_id: UUID,
+    body: CreateTopicRequest,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Create a new topic for a course."""
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    try:
+        topics = await TopicsService.create_topic(db, course_id, body.name)
+        return {"topics": topics}
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to create topic: {str(e)}")
+
+@router.put(path="/courses/{course_id}/topics", response_model=TopicsListResponse)
+async def update_topic(
+    course_id: UUID,
+    body: UpdateTopicRequest,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Update a topic name (renames the topic and updates all thread references)."""
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    try:
+        topics = await TopicsService.update_topic(db, course_id, body.old_name, body.new_name)
+        return {"topics": topics}
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to update topic: {str(e)}")
+
+@router.delete(path="/courses/{course_id}/topics", response_model=TopicsListResponse)
+async def delete_topic(
+    course_id: UUID,
+    body: DeleteTopicRequest,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Delete a topic (orphaned threads will have thread_tag set to NULL)."""
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    try:
+        topics = await TopicsService.delete_topic(db, course_id, body.name)
+        return {"topics": topics}
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to delete topic: {str(e)}")
+
+@router.post(path="/courses/{course_id}/topics/generate-from-syllabus", response_model=GenerateFromSyllabusResponse)
+async def generate_topics_from_syllabus(
+    course_id: UUID,
+    body: GenerateFromSyllabusRequest,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Generate topic suggestions from a syllabus file."""
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    # Verify file belongs to course
+    try:
+        file_obj = await CourseService.get_course_file(db, body.file_id)
+        if file_obj.course_id != course_id:
+            raise HTTPException(404, detail="File not found in this course")
+    except Exception as e:
+        raise HTTPException(404, detail="File not found")
+    
+    # Get course info
+    course_name = await CourseService.get_course_name_by_id(db, course_id)
+    course_code = await CourseService.get_course_code(db, course_id)
+    
+    try:
+        user_id = UUID(user["id"])
+        suggested_topics = await TopicsService.generate_topics_from_syllabus(
+            db=db,
+            file_id=body.file_id,
+            course_id=course_id,
+            course_name=course_name,
+            course_code=course_code,
+            user_id=user_id,
+        )
+        return {"suggested_topics": suggested_topics}
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to generate topics from syllabus: {str(e)}")
+
+@router.post(path="/courses/{course_id}/topics/reclassify-threads", response_model=ReclassifyThreadsResponse)
+async def reclassify_threads(
+    course_id: UUID,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Reclassify all threads in a course with the current topics."""
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, detail="Not authorized to view this course")
+    
+    topics = await TopicsService.get_topics(db, course_id)
+    if not topics:
+        raise HTTPException(400, detail="No topics found for this course")
+    
+    try:
+        user_id = UUID(user["id"])
+        result = await TopicsService.reclassify_all_threads(
+            db=db,
+            course_id=course_id,
+            topics=topics,
+            user_id=user_id,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to reclassify threads: {str(e)}")
+
 @router.get(path="/courses/{course_id}/students/{student_id}/usage")
 async def get_student_token_usage(
     course_id: UUID,
@@ -644,5 +790,143 @@ async def delete_announcement(
     """Delete an announcement."""
     await AnnouncementService.delete_announcement(db, announcement_id, user["id"])
     return {"deleted": True}
+
+@router.get(path="/courses/{course_id}/rules/{rule_type}", response_model=CourseRulesResponse)
+async def get_course_rules(
+    course_id: UUID,
+    rule_type: ThreadType,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Get rules for a course and rule type."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to view this course")
+    
+    rules = await RulesService.get_course_rules(db, course_id, rule_type)
+    
+    if rules is None:
+        raise HTTPException(404, "Rules not found for this course and rule type")
+    
+    return CourseRulesResponse(**rules)
+
+@router.put(path="/courses/{course_id}/rules/{rule_type}", response_model=CourseRulesResponse)
+async def update_course_rules(
+    course_id: UUID,
+    rule_type: ThreadType,
+    body: CourseRulesRequest,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Update rules for a course and rule type. Sets the level to NULL to indicate custom rules."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to edit this course")
+    
+    # Get current rules ID
+    rules_ids = await CourseService.get_course_rules_ids(db, course_id)
+    
+    field_map = {
+        ThreadType.writing: "writing_rules",
+        ThreadType.testing: "testing_rules",
+        ThreadType.debugging: "debugging_rules",
+    }
+    
+    rules_id = rules_ids.get(field_map[rule_type])
+    
+    if rules_id is None:
+        raise HTTPException(404, "Rules not found for this course and rule type")
+    
+    # Convert RuleObject list to dict list for database storage
+    rules_data = body.model_dump(exclude_unset=True)
+    
+    if "prompt_rules" in rules_data and rules_data["prompt_rules"]:
+        rules_data["prompt_rules"] = [rule.model_dump() if isinstance(rule, RuleObject) else rule for rule in rules_data["prompt_rules"]]
+    
+    if "output_rules" in rules_data and rules_data["output_rules"]:
+        rules_data["output_rules"] = [rule.model_dump() if isinstance(rule, RuleObject) else rule for rule in rules_data["output_rules"]]
+    
+    # Update rules
+    updated_rules = await RulesService.update_course_rules(db, rules_id, rules_data)
+    
+    # Set level to NULL to indicate custom rules
+    level_field_map = {
+        ThreadType.writing: "writing_level",
+        ThreadType.testing: "testing_level",
+        ThreadType.debugging: "debugging_level",
+    }
+    
+    level_field = level_field_map[rule_type]
+    await db.execute(
+        f"UPDATE courses SET {level_field} = NULL WHERE id = $1",
+        course_id
+    )
+    
+    return CourseRulesResponse(**updated_rules)
+
+@router.post(path="/courses/{course_id}/rules/{rule_type}/reset", response_model=CourseRulesResponse)
+async def reset_course_rules(
+    course_id: UUID,
+    rule_type: ThreadType,
+    body: ResetRulesRequest,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Reset rules to default for a specific level."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to edit this course")
+    
+    # Duplicate default rules for the specified level
+    new_rules_id = await RulesService.duplicate_default_rules(
+        db, course_id, rule_type, body.level
+    )
+    
+    # Update course to link new rules and set level
+    field_map = {
+        ThreadType.writing: ("writing_rules", "writing_level"),
+        ThreadType.testing: ("testing_rules", "testing_level"),
+        ThreadType.debugging: ("debugging_rules", "debugging_level"),
+    }
+    
+    rules_field, level_field = field_map[rule_type]
+    
+    await db.execute(
+        f"UPDATE courses SET {rules_field} = $1, {level_field} = $2 WHERE id = $3",
+        new_rules_id, body.level, course_id
+    )
+    
+    # Get updated rules
+    updated_rules = await RulesService.get_rules_by_id(db, new_rules_id)
+    
+    if updated_rules is None:
+        raise HTTPException(500, "Failed to retrieve updated rules")
+    
+    return CourseRulesResponse(**updated_rules)
+
+@router.get(path="/courses/{course_id}/rules/{rule_type}/defaults")
+async def get_level_defaults(
+    course_id: UUID,
+    rule_type: ThreadType,
+    db = Depends(get_db),
+    user: User = Depends(me)
+):
+    """Get available level defaults for a rule type."""
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to view this course")
+    
+    # Query level_defaults for this thread_type
+    query = """
+        SELECT DISTINCT level_idx
+        FROM level_defaults
+        WHERE thread_type = $1
+        ORDER BY level_idx
+    """
+    
+    rows = await db.fetch(query, rule_type.value)
+    levels = [row["level_idx"] for row in rows]
+    
+    return {"levels": levels}
 
         

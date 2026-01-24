@@ -17,6 +17,9 @@ from app.services.resend_service import ResendService
 from app.services.outreach_service import OutreachService
 from app.services.scheduler_service import SchedulerService
 from app.services.interaction_service import InteractionService
+from app.services.rules_service import RulesService
+from app.schemas.rules import CourseRulesRequest, CourseRulesResponse, LevelDefaultResponse, RuleObject
+from app.schemas.thread import ThreadType
 
 
 
@@ -381,6 +384,95 @@ async def delete_interaction(
     try:
         await InteractionService.delete_interaction(db, interaction_id)
         return {"ok": True, "message": "Interaction deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Default Rules endpoints
+
+@router.get(path="/rules/defaults/{thread_type}/{level_idx}", response_model=CourseRulesResponse)
+async def get_level_default_rules(
+    thread_type: ThreadType,
+    level_idx: int,
+    db = Depends(get_db),
+    user: User = Depends(require_admin)
+):
+    """
+    Admin-only endpoint to get default rules for a specific thread type and level.
+    """
+    try:
+        rules = await RulesService.get_level_default_rules(db, thread_type, level_idx)
+        
+        if rules is None:
+            raise HTTPException(status_code=404, detail=f"Default rules not found for {thread_type.value} level {level_idx}")
+        
+        return CourseRulesResponse(**rules)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put(path="/rules/defaults/{thread_type}/{level_idx}", response_model=CourseRulesResponse)
+async def create_or_update_level_default_rules(
+    thread_type: ThreadType,
+    level_idx: int,
+    body: CourseRulesRequest,
+    db = Depends(get_db),
+    user: User = Depends(require_admin)
+):
+    """
+    Admin-only endpoint to create or update default rules for a specific thread type and level.
+    Creates the rules if they don't exist, updates them if they do.
+    """
+    try:
+        # Validate level_idx ranges
+        if thread_type == ThreadType.writing and (level_idx < 0 or level_idx > 7):
+            raise HTTPException(status_code=400, detail="Writing level must be between 0 and 7")
+        elif thread_type in [ThreadType.testing, ThreadType.debugging] and (level_idx < 0 or level_idx > 5):
+            raise HTTPException(status_code=400, detail=f"{thread_type.value} level must be between 0 and 5")
+        
+        # Convert RuleObject list to dict list for database storage
+        rules_data = body.model_dump(exclude_unset=True)
+        
+        if "prompt_rules" in rules_data and rules_data["prompt_rules"]:
+            rules_data["prompt_rules"] = [
+                rule.model_dump() if isinstance(rule, RuleObject) else rule 
+                for rule in rules_data["prompt_rules"]
+            ]
+        
+        if "output_rules" in rules_data and rules_data["output_rules"]:
+            rules_data["output_rules"] = [
+                rule.model_dump() if isinstance(rule, RuleObject) else rule 
+                for rule in rules_data["output_rules"]
+            ]
+        
+        # Create or update default rules
+        updated_rules = await RulesService.create_or_update_level_default(
+            db, thread_type, level_idx, rules_data
+        )
+        
+        return CourseRulesResponse(**updated_rules)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(path="/rules/defaults/{thread_type}", response_model=List[LevelDefaultResponse])
+async def list_level_defaults(
+    thread_type: ThreadType,
+    db = Depends(get_db),
+    user: User = Depends(require_admin)
+):
+    """
+    Admin-only endpoint to list all default rules for a thread type.
+    """
+    try:
+        defaults = await RulesService.list_level_defaults(db, thread_type)
+        return [LevelDefaultResponse(**d) for d in defaults]
     except HTTPException:
         raise
     except Exception as e:

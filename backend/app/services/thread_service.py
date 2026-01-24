@@ -315,6 +315,35 @@ class ThreadService:
             # Log error but don't fail - summary generation is non-critical
             print(f"Failed to update thread summary for thread {thread_id}: {str(e)}")
 
+    @staticmethod
+    async def get_thread_topic(
+        db: asyncpg.Connection,
+        thread_id: UUID
+    ) -> Optional[str]:
+        """Get the topic associated with a thread.
+        
+        Returns:
+            Topic name or None if no topic set
+        """
+        query = "SELECT topic FROM threads WHERE id = $1"
+        return await db.fetchval(query, thread_id)
+
+    @staticmethod
+    async def set_thread_topic(
+        db: asyncpg.Connection,
+        thread_id: UUID,
+        topic: str
+    ) -> None:
+        """Set the topic for a thread.
+        
+        Args:
+            db: Database connection
+            thread_id: Thread UUID
+            topic: Topic name to set
+        """
+        query = "UPDATE threads SET topic = $1 WHERE id = $2"
+        await db.execute(query, topic, thread_id)
+
 
 
 

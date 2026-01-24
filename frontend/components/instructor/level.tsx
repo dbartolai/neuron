@@ -31,7 +31,8 @@ import { Badge } from "../ui/badge"
 interface LevelProps {
     id: string
     courseId: string
-    onLevelChange: (levelType: string, levelIdx: number) => void
+    onLevelChange: (levelType: string, levelIdx: number | undefined) => void
+    level: number | null
 }
 
 const enum LevelType {
@@ -40,10 +41,10 @@ const enum LevelType {
     d = "DEBUGGING"
 }
 
-export function Level({ id, courseId, onLevelChange }: LevelProps) {
+export function Level({ id, courseId, onLevelChange, level }: LevelProps) {
 
     const [dialogOpen, setDialogOpen] = useState(false)
-    const [pendingChange, setPendingChange] = useState<{type: LevelType, idx: number, title: string} | null>(null)
+    const [pendingChange, setPendingChange] = useState<{type: LevelType, idx: number | undefined, title: string} | null>(null)
 
     const t: string = id[0];
     let type: LevelType = LevelType.t
@@ -53,11 +54,16 @@ export function Level({ id, courseId, onLevelChange }: LevelProps) {
         type = LevelType.d
     } 
 
-    const idx = Number(id.split("-")[1] || 0) || 0;
+    const idx = level;
 
     const handleSelectLevel = (levelType: LevelType, levelIdx: number, levelTitle: string) => {
         setPendingChange({ type: levelType, idx: levelIdx, title: levelTitle })
         setDialogOpen(true)
+    }
+    
+    const handleSelectCustom = () => {
+        // Custom rules are set when rules are edited, not through level selection
+        // This is handled by the rules page
     }
 
     const handleConfirm = () => {
@@ -89,9 +95,15 @@ export function Level({ id, courseId, onLevelChange }: LevelProps) {
     }
 
     const label = (() => {
-      if (type === LevelType.w) return "Writing – "+WRITING_LEVELS[idx]?.title || "Select Writing Level";
-      if (type === LevelType.t) return "Testing – "+TESTING_LEVEL[idx]?.title || "Select Testing Level";
-      if (type === LevelType.d) return "Debugging – "+DEBUGGING_LEVELS[idx]?.title || "Select Debugging Level";
+      if (idx === null || idx === undefined) {
+        if (type === LevelType.w) return "Writing – Custom";
+        if (type === LevelType.t) return "Testing – Custom";
+        if (type === LevelType.d) return "Debugging – Custom";
+        return "Custom";
+      }
+      if (type === LevelType.w) return "Writing – "+(WRITING_LEVELS[idx]?.title || "Select Writing Level");
+      if (type === LevelType.t) return "Testing – "+(TESTING_LEVEL[idx]?.title || "Select Testing Level");
+      if (type === LevelType.d) return "Debugging – "+(DEBUGGING_LEVELS[idx]?.title || "Select Debugging Level");
       return "Select Level";
     })();
 

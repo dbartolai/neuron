@@ -236,7 +236,7 @@ class AnnouncementService:
         
         # Verify ownership
         announcement = await AnnouncementService.get_announcement(db, announcement_id)
-        if announcement.instructor_id != instructor_id:
+        if str(announcement.instructor_id) != str(instructor_id):
             raise HTTPException(status_code=401, detail="Not authorized to delete this announcement")
         
         # Delete announcement (cascade will handle file links and reactions)

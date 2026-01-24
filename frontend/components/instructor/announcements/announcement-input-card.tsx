@@ -107,7 +107,7 @@ export function AnnouncementInputCard({ onPostSuccess }: Props) {
         {files.length > 0 && (
           <div className="space-y-2">
             <Label>Attach Files (Optional)</Label>
-            <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+            <div className="border rounded-lg p-3 space-y-2 max-h-48 chat-scroll overflow-y-auto">
               {files.map((file) => (
                 <div
                   key={file.id}

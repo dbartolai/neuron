@@ -9,9 +9,9 @@ import { getApiUrl } from "@/lib/utils"
 export interface useCourseResponse {
     courseName: string
     courseCode: string
-    writingLevel: number
-    testingLevel: number
-    debuggingLevel: number
+    writingLevel: number | null
+    testingLevel: number | null
+    debuggingLevel: number | null
     courseError: string | null
     courseLoading: boolean
     students: Student[]
@@ -24,18 +24,18 @@ interface PatchCourse {
     id: string
     name?: string
     code?: string
-    writing_level?: number
-    testing_level?: number
-    debugging_level?: number
+    writing_level?: number | null
+    testing_level?: number | null
+    debugging_level?: number | null
 }
 
 interface Course {
     id: string
     name: string
     code: string
-    writing_level: number
-    testing_level: number
-    debugging_level: number
+    writing_level: number | null
+    testing_level: number | null
+    debugging_level: number | null
 }
 
 interface Student {
@@ -59,9 +59,9 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
 
     const [courseName, setCourseName] = useState<string>("");
     const [courseCode, setCourseCode] = useState<string>("");
-    const [writingLevel, setWritingLevel] = useState<number>(0);
-    const [testingLevel, setTestingLevel] = useState<number>(0);
-    const [debuggingLevel, setDebuggingLevel] = useState<number>(0);
+    const [writingLevel, setWritingLevel] = useState<number | null>(0);
+    const [testingLevel, setTestingLevel] = useState<number | null>(0);
+    const [debuggingLevel, setDebuggingLevel] = useState<number | null>(0);
     const [courseError, setCourseError] = useState<string | null>(null);
     const [courseLoading, setCourseLoading] = useState(false);
     const [students, setStudents] = useState<Student[]>([]);

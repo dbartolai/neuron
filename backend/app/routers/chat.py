@@ -49,6 +49,10 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
     if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
         raise HTTPException(401, "Not authorized to access this course")
 
+    # Get course rules from database
+    level = await PromptService.get_course_rules(db, course_id, thread_type)
+    
+    # Get level_idx for fallback service (may be None for custom rules)
     levels_query = """
         SELECT writing_level, testing_level, debugging_level
         FROM courses
@@ -66,8 +70,6 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
         level_idx = course_row["debugging_level"]
     else:
         raise HTTPException(status_code=400, detail="invalid thread type")
-
-    level = PromptService.get_level(thread_type, level_idx)
 
     # 1) Stage 1 — Student rules evaluation
     # add user chat to logs
@@ -98,7 +100,19 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
         await LogService.insert_message(db, thread_id, ChatRole.system, system_msg)
         return ChatResponse(role=ChatRole.system, content=system_msg)
 
-    # 2) Stage 2 — Chat with guardrails
+    # 2) Get thread topic (set during thread creation)
+    thread_topic = await ThreadService.get_thread_topic(db, thread_id)
+    
+    # 3) Stage 2 — Chat with full prompt architecture
+    # Build complete system prompt with all layers (using thread topic)
+    full_system_prompt = await PromptService.build_full_system_prompt(
+        db=db,
+        course_id=course_id,
+        thread_type=thread_type,
+        detected_topic=thread_topic  # Read from thread, not detected on each message
+    )
+    
+    # Get conversation history
     prior_logs: List[MessageLog] = await LogService.get_messages_from_thread(db, thread_id)
     messages: List[MessageEntry] = [
         MessageEntry(role=ChatRole(chat.role), content=chat.message, timestamp=chat.created_at.isoformat())
@@ -114,34 +128,21 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
         from app.services.course_service import CourseService  # local import to avoid cycles
         vector_store_id = await CourseService.get_vector_store(db, course_id)
 
-    # Build guardrails with global invariants prepended
-    guardrails = list(GLOBAL_INVARIANTS) + list(level.get("guardrails", []))
-    response_rules = list(level.get("response_rules", []))
-    
-    # Augment guardrails and response rules if file_search is available
-    if vector_store_id:
-        guardrails += [
-            "Use the file_search tool only when necessary to retrieve exact details from course files.",
-            "When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
-        ]
-        response_rules += [
-            "If file_search was used, include citations with filename and a minimal quoted snippet.",
-        ]
-
-    assistant_output: str = await ChatService.chat_with_guardrails(
-        messages,
-        guardrails,
+    # Call model with full prompt
+    assistant_output: str = await ChatService.chat_with_full_prompt(
+        system_prompt=full_system_prompt,
+        messages=messages,
         vector_store_id=vector_store_id,
         db=db,
         user_id=user_id,
         thread_id=thread_id,
     )
 
-    # 3) Stage 3 — Response rule evaluation
+    # 4) Stage 3 — Response rule evaluation with type awareness
     resp_passed, resp_details = await ChatService.evaluate_response_rules(
         body.message,
         assistant_output,
-        response_rules,
+        level.get("output_rules", []),
         db=db,
         user_id=user_id,
         thread_id=thread_id,
@@ -149,41 +150,68 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
 
     if not resp_passed:
         violations = resp_details.get("violations", [])
-        vtext = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Unspecified violations"
-        corrective_guardrail = [
-            f"Follow all response rules strictly. Your previous response violated: {vtext}. Revise and answer again without violating any rules."
-        ]
-        assistant_output_retry: str = await ChatService.chat_with_guardrails(
-            messages,
-            guardrails + corrective_guardrail,
+        require_violations = resp_details.get("require_violations", [])
+        deny_violations = resp_details.get("deny_violations", [])
+        
+        # Build corrective prompt based on violation types
+        corrective_instructions = []
+        
+        if require_violations:
+            req_text = "; ".join(require_violations)
+            corrective_instructions.append(
+                f"Your response is missing REQUIRED elements: {req_text}. "
+                "Regenerate your response and ensure these required elements are included."
+            )
+        
+        if deny_violations:
+            deny_text = "; ".join(deny_violations)
+            corrective_instructions.append(
+                f"Your response included DENIED content: {deny_text}. "
+                "Regenerate your response without this forbidden content."
+            )
+        
+        if not corrective_instructions:
+            # Fallback for violations without types
+            vtext = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Unspecified violations"
+            corrective_instructions.append(
+                f"Follow all response rules strictly. Your previous response violated: {vtext}. Revise and answer again without violating any rules."
+            )
+        
+        # Retry with corrective instructions
+        corrective_prompt = full_system_prompt + "\n\n" + " ".join(corrective_instructions)
+        
+        assistant_output_retry: str = await ChatService.chat_with_full_prompt(
+            system_prompt=corrective_prompt,
+            messages=messages,
             vector_store_id=vector_store_id,
             db=db,
             user_id=user_id,
             thread_id=thread_id,
         )
+        
+        # Evaluate retry
         retry_passed, _ = await ChatService.evaluate_response_rules(
             body.message,
             assistant_output_retry,
-            response_rules,
+            level.get("output_rules", []),
             db=db,
             user_id=user_id,
             thread_id=thread_id,
         )
+        
         if retry_passed:
             chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output_retry)
             # Update thread summary after assistant message
             await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
             return ChatResponse(role=ChatRole.assistant, content=assistant_output_retry)
         else:
-            # Response validation failed twice - use deterministic fallback
-            violations_retry = resp_details.get("violations", [])
-            violation_type_retry = FallbackService.infer_violation_type(violations_retry, body.message)
+            # Two failures - return error fallback
             fail_msg = FallbackService.generate_fallback(
-                violation_type=violation_type_retry,
+                violation_type=ViolationType.GENERIC,
                 thread_type=thread_type,
                 level_index=level_idx,
                 student_prompt=body.message,
-                violations=violations_retry
+                violations=violations
             )
             await LogService.insert_message(db, thread_id, ChatRole.system, fail_msg)
             return ChatResponse(role=ChatRole.system, content=fail_msg)
@@ -220,6 +248,13 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
     if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
         raise HTTPException(401, "Not authorized to access this course")
 
+    if thread_type is None:
+        thread_type = ThreadType.writing
+    
+    # Get course rules from database
+    level = await PromptService.get_course_rules(db, course_id, thread_type)
+    
+    # Get level_idx for fallback service (may be None for custom rules)
     levels_query = """
         SELECT writing_level, testing_level, debugging_level
         FROM courses
@@ -229,8 +264,6 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
     if course_row is None:
         raise HTTPException(status_code=404, detail="course not found")
 
-    if thread_type is None:
-        thread_type = ThreadType.writing
     if thread_type == ThreadType.writing:
         level_idx = course_row["writing_level"]
     elif thread_type == ThreadType.testing:
@@ -239,8 +272,6 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
         level_idx = course_row["debugging_level"]
     else:
         raise HTTPException(status_code=400, detail="invalid thread type")
-
-    level = PromptService.get_level(thread_type, level_idx)
 
     # 1) Stage 1 — Student rules evaluation
     # add user chat to logs
@@ -343,7 +374,18 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                 yield f"event: done\ndata: {json.dumps({})}\n\n"
                 return
 
-            # 2) Stage 2 — Chat with guardrails (streaming)
+            # 2) Get thread topic (set during thread creation)
+            thread_topic = await ThreadService.get_thread_topic(db_conn, thread_id)
+            
+            # 3) Stage 2 — Chat with full prompt architecture (streaming)
+            # Build complete system prompt with all layers (using thread topic)
+            full_system_prompt = await PromptService.build_full_system_prompt(
+                db=db_conn,
+                course_id=course_id,
+                thread_type=thread_type_val if 'thread_type_val' in locals() else thread_type,
+                detected_topic=thread_topic  # Read from thread, not detected on each message
+            )
+            
             prior_logs: List[MessageLog] = await LogService.get_messages_from_thread(db_conn, thread_id)
             messages: List[MessageEntry] = [
                 MessageEntry(role=ChatRole(chat.role), content=chat.message, timestamp=chat.created_at.isoformat())
@@ -359,23 +401,13 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                 from app.services.course_service import CourseService
                 vector_store_id = await CourseService.get_vector_store(db_conn, course_id)
 
-            # Build guardrails with global invariants prepended
-            guardrails = list(GLOBAL_INVARIANTS) + list(level.get("guardrails", []))
-            
-            # Augment guardrails if file_search is available
-            if vector_store_id:
-                guardrails += [
-                    "Use the file_search tool only when necessary to retrieve exact details from course files.",
-                    "When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
-                ]
-
             # Stream the response and capture usage
             full_response = ""
             usage_info = {}
             try:
-                async for token in ChatService.chat_with_guardrails_stream(
-                    messages,
-                    guardrails,
+                async for token in ChatService.chat_with_full_prompt_stream(
+                    system_prompt=full_system_prompt,
+                    messages=messages,
                     vector_store_id=vector_store_id,
                     usage_info=usage_info,
                 ):
@@ -583,6 +615,10 @@ async def use_fallback(body: ChatFallbackRequest, db: asyncpg.Connection = Depen
     thread_type: ThreadType = meta_row["thread_type"]
     course_id = meta_row["course_id"]
     
+    # Get course rules from database
+    level = await PromptService.get_course_rules(db, course_id, thread_type)
+    
+    # Get level_idx for fallback service (may be None for custom rules)
     levels_query = """
         SELECT writing_level, testing_level, debugging_level
         FROM courses
@@ -600,8 +636,6 @@ async def use_fallback(body: ChatFallbackRequest, db: asyncpg.Connection = Depen
         level_idx = course_row["debugging_level"]
     else:
         raise HTTPException(status_code=400, detail="invalid thread type")
-    
-    level = PromptService.get_level(thread_type, level_idx)
     
     # Extract FALLBACK rules from level (keep for metadata, but don't use in prompt)
     fallback_rules = PromptService.extract_fallback_rules(level)
@@ -624,14 +658,20 @@ async def use_fallback(body: ChatFallbackRequest, db: asyncpg.Connection = Depen
                     MessageEntry(role=ChatRole(chat.role), content=chat.message, timestamp=chat.created_at.isoformat())
                 )
             
-            # Build guardrails: GLOBAL_INVARIANTS + level guardrails (excluding FALLBACK rules)
-            # FALLBACK rules are kept for metadata but shouldn't be in the prompt as they conflict with structured output
-            level_guardrails = [r for r in level.get("guardrails", []) if not r.startswith("FALLBACK:")]
-            guardrails = list(GLOBAL_INVARIANTS) + level_guardrails
+            # Get thread topic for full prompt architecture
+            thread_topic = await ThreadService.get_thread_topic(db_conn, thread_id)
+            
+            # Build full system prompt with all layers
+            full_system_prompt = await PromptService.build_full_system_prompt(
+                db=db_conn,
+                course_id=course_id,
+                thread_type=thread_type,
+                detected_topic=thread_topic
+            )
             
             # Add concise instruction for fallback responses
-            guardrails.append("Provide a concise, helpful response (2-3 paragraphs maximum) that guides the student within their level constraints.")
-            response_rules = list(level.get("response_rules", []))
+            full_system_prompt += "\n\nProvide a concise, helpful response (2-3 paragraphs maximum) that guides the student within their level constraints."
+            response_rules = level.get("output_rules", [])
             
             # Check if file_search is needed (re-evaluate for the original message)
             passed, details = await ChatService.evaluate_student_rules(
@@ -662,9 +702,9 @@ async def use_fallback(body: ChatFallbackRequest, db: asyncpg.Connection = Depen
             full_response = ""
             usage_info = {}
             try:
-                async for token in ChatService.chat_with_guardrails_stream(
-                    messages,
-                    guardrails,
+                async for token in ChatService.chat_with_full_prompt_stream(
+                    system_prompt=full_system_prompt,
+                    messages=messages,
                     vector_store_id=vector_store_id,
                     usage_info=usage_info,
                 ):
@@ -682,18 +722,35 @@ async def use_fallback(body: ChatFallbackRequest, db: asyncpg.Connection = Depen
                 )
                 
                 if not resp_passed:
-                    # Retry once with corrective guardrail
+                    # Build type-aware corrective instructions
                     violations = resp_details.get("violations", [])
-                    vtext = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Unspecified violations"
-                    corrective_guardrail = [
-                        f"Follow all response rules strictly. Your previous response violated: {vtext}. Revise and answer again without violating any rules."
-                    ]
+                    require_violations = resp_details.get("require_violations", [])
+                    deny_violations = resp_details.get("deny_violations", [])
+                    
+                    corrective_instructions = []
+                    if require_violations:
+                        req_text = "; ".join(require_violations)
+                        corrective_instructions.append(
+                            f"Your response is missing REQUIRED elements: {req_text}. Regenerate with these required elements."
+                        )
+                    if deny_violations:
+                        deny_text = "; ".join(deny_violations)
+                        corrective_instructions.append(
+                            f"Your response included DENIED content: {deny_text}. Regenerate without this forbidden content."
+                        )
+                    if not corrective_instructions:
+                        vtext = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Unspecified violations"
+                        corrective_instructions.append(
+                            f"Follow all response rules strictly. Your previous response violated: {vtext}. Revise and answer again."
+                        )
+                    
+                    corrective_prompt = full_system_prompt + "\n\n" + " ".join(corrective_instructions)
                     
                     full_response_retry = ""
                     usage_info_retry = {}
-                    async for token in ChatService.chat_with_guardrails_stream(
-                        messages,
-                        guardrails + corrective_guardrail,
+                    async for token in ChatService.chat_with_full_prompt_stream(
+                        system_prompt=corrective_prompt,
+                        messages=messages,
                         vector_store_id=vector_store_id,
                         usage_info=usage_info_retry,
                     ):

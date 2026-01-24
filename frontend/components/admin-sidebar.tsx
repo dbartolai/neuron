@@ -8,6 +8,7 @@ import {
   Settings2,
   MessageSquare,
   Calendar,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import { NavUser } from "@/components/nav-user"
@@ -86,6 +87,14 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     <Link href="/admin/scheduler">
                       <Calendar />
                       <span>Scheduler</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Default Rules">
+                    <Link href="/admin/rules">
+                      <FileText />
+                      <span>Default Rules</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
