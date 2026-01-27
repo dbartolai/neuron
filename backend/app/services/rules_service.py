@@ -1,6 +1,7 @@
 """Service for managing course rules stored in the database."""
 
 import asyncpg
+import json
 from uuid import UUID
 from typing import Dict, List, Optional, Any
 from app.schemas.thread import ThreadType
@@ -8,6 +9,38 @@ from app.schemas.thread import ThreadType
 
 class RulesService:
     """Service for CRUD operations on course_rules table."""
+
+    @staticmethod
+    def _parse_rules_dict(row_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse JSON strings for prompt_rules and output_rules fields.
+        
+        Args:
+            row_dict: Dictionary from database row
+            
+        Returns:
+            Dictionary with parsed prompt_rules and output_rules
+        """
+        parsed = dict(row_dict)
+        
+        # Parse prompt_rules if it's a string
+        if "prompt_rules" in parsed and parsed["prompt_rules"] is not None:
+            if isinstance(parsed["prompt_rules"], str):
+                try:
+                    parsed["prompt_rules"] = json.loads(parsed["prompt_rules"])
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, leave as string (will cause validation error downstream)
+                    pass
+        
+        # Parse output_rules if it's a string
+        if "output_rules" in parsed and parsed["output_rules"] is not None:
+            if isinstance(parsed["output_rules"], str):
+                try:
+                    parsed["output_rules"] = json.loads(parsed["output_rules"])
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, leave as string (will cause validation error downstream)
+                    pass
+        
+        return parsed
 
     @staticmethod
     async def get_course_rules(
@@ -49,7 +82,7 @@ class RulesService:
         if row is None:
             return None
         
-        return dict(row)
+        return RulesService._parse_rules_dict(dict(row))
 
     @staticmethod
     async def get_level_default_rules(
@@ -78,7 +111,7 @@ class RulesService:
         if row is None:
             return None
         
-        return dict(row)
+        return RulesService._parse_rules_dict(dict(row))
 
     @staticmethod
     async def duplicate_default_rules(
@@ -237,7 +270,7 @@ class RulesService:
         if row is None:
             raise ValueError(f"Rules not found: {rules_id}")
         
-        return dict(row)
+        return RulesService._parse_rules_dict(dict(row))
 
     @staticmethod
     async def get_rules_by_id(
@@ -265,7 +298,7 @@ class RulesService:
         if row is None:
             return None
         
-        return dict(row)
+        return RulesService._parse_rules_dict(dict(row))
 
     @staticmethod
     async def delete_course_rules(
@@ -459,6 +492,6 @@ class RulesService:
                 "course_id": row["course_id"],
                 "rule_type": row["rule_type"],
             }
-            result.append(rule_dict)
+            result.append(RulesService._parse_rules_dict(rule_dict))
         
         return result
