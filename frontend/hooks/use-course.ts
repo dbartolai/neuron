@@ -7,9 +7,6 @@ import { getApiUrl } from "@/lib/utils"
 export interface CoursePolicy {
     name: string;
     code: string;
-    writing_level: number;
-    testing_level: number;
-    debugging_level: number;
 }
 
 export interface useCourseResponse {

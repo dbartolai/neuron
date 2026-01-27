@@ -106,8 +106,8 @@ class CourseService:
         """
         # First create the course
         query: str = """
-            INSERT INTO courses (name, code, instructor_id, writing_level, testing_level, debugging_level)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO courses (name, code, instructor_id)
+            VALUES ($1, $2, $3)
             RETURNING id
         """
 
@@ -115,21 +115,18 @@ class CourseService:
             query, 
             course.name, 
             course.code, 
-            instructor_id, 
-            course.writing_level, 
-            course.testing_level, 
-            course.debugging_level
+            instructor_id
         )
         
         # Duplicate default rules for each mode and link them
         writing_rules_id = await RulesService.duplicate_default_rules(
-            db, course_id, ThreadType.writing, course.writing_level
+            db, course_id, ThreadType.writing
         )
         testing_rules_id = await RulesService.duplicate_default_rules(
-            db, course_id, ThreadType.testing, course.testing_level
+            db, course_id, ThreadType.testing
         )
         debugging_rules_id = await RulesService.duplicate_default_rules(
-            db, course_id, ThreadType.debugging, course.debugging_level
+            db, course_id, ThreadType.debugging
         )
         
         # Update course with rule IDs
@@ -155,7 +152,7 @@ class CourseService:
     async def get_course_policy(db: asyncpg.Connection, course_id: UUID) -> CoursePolicy:
 
         query: str = """
-            SELECT name, code, writing_level, testing_level, debugging_level
+            SELECT name, code
             FROM courses
             WHERE id = $1
         """
@@ -188,56 +185,13 @@ class CourseService:
 
         changes = patch.model_dump(exclude_unset=True)
         changes.pop("id", None)
+        # Remove level fields if they exist (they're no longer supported)
+        changes.pop("writing_level", None)
+        changes.pop("testing_level", None)
+        changes.pop("debugging_level", None)
 
         if not changes:
             return await CourseService.get_course_policy(db, patch.id)
-        
-        # Handle level changes - duplicate new defaults if level is being set
-        # Get current course state
-        current_query = """
-            SELECT writing_level, testing_level, debugging_level, writing_rules, testing_rules, debugging_rules
-            FROM courses
-            WHERE id = $1
-        """
-        current = await db.fetchrow(current_query, patch.id)
-        if current is None:
-            raise LookupError("course not found")
-        
-        # Check for level changes and duplicate rules if needed
-        if "writing_level" in changes:
-            new_level = changes["writing_level"]
-            if new_level is not None and current["writing_level"] != new_level:
-                # Duplicate new default rules
-                new_rules_id = await RulesService.duplicate_default_rules(
-                    db, patch.id, ThreadType.writing, new_level
-                )
-                # Update the writing_rules foreign key
-                await db.execute(
-                    "UPDATE courses SET writing_rules = $1 WHERE id = $2",
-                    new_rules_id, patch.id
-                )
-        
-        if "testing_level" in changes:
-            new_level = changes["testing_level"]
-            if new_level is not None and current["testing_level"] != new_level:
-                new_rules_id = await RulesService.duplicate_default_rules(
-                    db, patch.id, ThreadType.testing, new_level
-                )
-                await db.execute(
-                    "UPDATE courses SET testing_rules = $1 WHERE id = $2",
-                    new_rules_id, patch.id
-                )
-        
-        if "debugging_level" in changes:
-            new_level = changes["debugging_level"]
-            if new_level is not None and current["debugging_level"] != new_level:
-                new_rules_id = await RulesService.duplicate_default_rules(
-                    db, patch.id, ThreadType.debugging, new_level
-                )
-                await db.execute(
-                    "UPDATE courses SET debugging_rules = $1 WHERE id = $2",
-                    new_rules_id, patch.id
-                )
         
         set_parts: list[str] = []
         values: list[str] = []
@@ -254,7 +208,7 @@ class CourseService:
             UPDATE courses
             SET {", ".join(set_parts)}
             WHERE id = ${i}
-            RETURNING id, name, code, writing_level, testing_level, debugging_level
+            RETURNING id, name, code
         """
 
         row = await db.fetchrow(query, *values)

@@ -1,9 +1,16 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 interface TopicWithCount {
   name: string
@@ -26,20 +33,29 @@ export function TopicsList({ topics, onEdit, onDelete }: Props) {
   }
 
   return (
-    <div className="space-y-3">
-      {topics.map((topic) => (
-        <Card key={topic.name}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CardTitle className="text-lg">{topic.name}</CardTitle>
-                {topic.count !== undefined && (
-                  <Badge variant="secondary">
-                    {topic.count} {topic.count === 1 ? "thread" : "threads"}
-                  </Badge>
-                )}
-              </div>
-              <div className="flex gap-2">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Topic Name</TableHead>
+          <TableHead>Thread Count</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {topics.map((topic) => (
+          <TableRow key={topic.name}>
+            <TableCell className="font-medium">{topic.name}</TableCell>
+            <TableCell>
+              {topic.count !== undefined ? (
+                <Badge variant="secondary">
+                  {topic.count} {topic.count === 1 ? "thread" : "threads"}
+                </Badge>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
+            </TableCell>
+            <TableCell className="text-right">
+              <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="icon" onClick={() => onEdit(topic.name)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -47,10 +63,10 @@ export function TopicsList({ topics, onEdit, onDelete }: Props) {
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
-            </div>
-          </CardHeader>
-        </Card>
-      ))}
-    </div>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }

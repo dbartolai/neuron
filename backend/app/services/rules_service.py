@@ -54,15 +54,13 @@ class RulesService:
     @staticmethod
     async def get_level_default_rules(
         db: asyncpg.Connection,
-        thread_type: ThreadType,
-        level_idx: int
+        thread_type: ThreadType
     ) -> Optional[Dict[str, Any]]:
         """Get default rules from level_defaults table.
         
         Args:
             db: Database connection
             thread_type: ThreadType (writing, testing, debugging)
-            level_idx: Level index (0-7 for writing, 0-5 for testing/debugging)
             
         Returns:
             Dictionary with default rules data or None if not found
@@ -72,10 +70,10 @@ class RulesService:
                    cr.fallback_prompt, cr.outputs, cr.version_num, cr.course_id, cr.rule_type
             FROM level_defaults ld
             JOIN course_rules cr ON ld.rules_id = cr.id
-            WHERE ld.thread_type = $1 AND ld.level_idx = $2
+            WHERE ld.thread_type = $1 AND ld.level_idx IS NULL
         """
         
-        row = await db.fetchrow(query, thread_type.value, level_idx)
+        row = await db.fetchrow(query, thread_type.value)
         
         if row is None:
             return None
@@ -86,27 +84,50 @@ class RulesService:
     async def duplicate_default_rules(
         db: asyncpg.Connection,
         course_id: UUID,
-        thread_type: ThreadType,
-        level_idx: int
+        thread_type: ThreadType
     ) -> UUID:
         """Duplicate default rules from level_defaults to course_rules.
+        
+        If no default rules exist, creates empty rules for the course.
         
         Args:
             db: Database connection
             course_id: Course UUID
             thread_type: ThreadType (writing, testing, debugging)
-            level_idx: Level index
             
         Returns:
             UUID of the newly created course_rules row
         """
         # Get default rules
-        default_rules = await RulesService.get_level_default_rules(db, thread_type, level_idx)
+        default_rules = await RulesService.get_level_default_rules(db, thread_type)
         
+        # If no defaults exist, create empty rules
         if default_rules is None:
-            raise ValueError(f"No default rules found for {thread_type.value} level {level_idx}")
+            # Create empty rules for the course
+            query = """
+                INSERT INTO course_rules (
+                    goals, prompt_rules, output_rules, fallback_prompt, outputs,
+                    version_num, course_id, rule_type
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING id
+            """
+            
+            rules_id = await db.fetchval(
+                query,
+                None,  # goals
+                None,  # prompt_rules
+                None,  # output_rules
+                None,  # fallback_prompt
+                None,  # outputs
+                1,     # version_num
+                course_id,
+                thread_type.value
+            )
+            
+            return rules_id
         
-        # Insert new row with course_id set
+        # Insert new row with course_id set, copying from defaults
         query = """
             INSERT INTO course_rules (
                 goals, prompt_rules, output_rules, fallback_prompt, outputs,
@@ -318,15 +339,13 @@ class RulesService:
     @staticmethod
     async def get_level_default_rules_id(
         db: asyncpg.Connection,
-        thread_type: ThreadType,
-        level_idx: int
+        thread_type: ThreadType
     ) -> Optional[UUID]:
         """Get rules_id from level_defaults table.
         
         Args:
             db: Database connection
             thread_type: ThreadType (writing, testing, debugging)
-            level_idx: Level index
             
         Returns:
             UUID of rules_id or None if not found
@@ -334,20 +353,19 @@ class RulesService:
         query = """
             SELECT rules_id
             FROM level_defaults
-            WHERE thread_type = $1 AND level_idx = $2
+            WHERE thread_type = $1 AND level_idx IS NULL
         """
         
-        rules_id = await db.fetchval(query, thread_type.value, level_idx)
+        rules_id = await db.fetchval(query, thread_type.value)
         return rules_id
 
     @staticmethod
     async def create_or_update_level_default(
         db: asyncpg.Connection,
         thread_type: ThreadType,
-        level_idx: int,
         rules_data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Create or update default rules for a level.
+        """Create or update default rules for a thread type.
         
         If level_defaults row exists, updates the linked course_rules.
         If not, creates new course_rules and level_defaults rows.
@@ -355,14 +373,13 @@ class RulesService:
         Args:
             db: Database connection
             thread_type: ThreadType (writing, testing, debugging)
-            level_idx: Level index
             rules_data: Dictionary with rules fields
             
         Returns:
             Updated rules dictionary
         """
         # Check if level_defaults row exists
-        existing_rules_id = await RulesService.get_level_default_rules_id(db, thread_type, level_idx)
+        existing_rules_id = await RulesService.get_level_default_rules_id(db, thread_type)
         
         if existing_rules_id:
             # Update existing course_rules
@@ -393,11 +410,11 @@ class RulesService:
             # Create level_defaults row pointing to the new course_rules
             insert_default_query = """
                 INSERT INTO level_defaults (thread_type, level_idx, rules_id)
-                VALUES ($1, $2, $3)
+                VALUES ($1, NULL, $2)
                 RETURNING id
             """
             
-            await db.fetchval(insert_default_query, thread_type.value, level_idx, rules_id)
+            await db.fetchval(insert_default_query, thread_type.value, rules_id)
             
             # Return the created rules
             return await RulesService.get_rules_by_id(db, rules_id)
@@ -407,14 +424,14 @@ class RulesService:
         db: asyncpg.Connection,
         thread_type: ThreadType
     ) -> List[Dict[str, Any]]:
-        """List all level_defaults for a thread_type with their rules.
+        """List default rules for a thread_type (should be at most one).
         
         Args:
             db: Database connection
             thread_type: ThreadType (writing, testing, debugging)
             
         Returns:
-            List of dictionaries with level_idx and rules data
+            List of dictionaries with rules data (should contain at most one item)
         """
         query = """
             SELECT 
@@ -423,8 +440,7 @@ class RulesService:
                 cr.fallback_prompt, cr.outputs, cr.version_num, cr.course_id, cr.rule_type
             FROM level_defaults ld
             JOIN course_rules cr ON ld.rules_id = cr.id
-            WHERE ld.thread_type = $1
-            ORDER BY ld.level_idx
+            WHERE ld.thread_type = $1 AND ld.level_idx IS NULL
         """
         
         rows = await db.fetch(query, thread_type.value)

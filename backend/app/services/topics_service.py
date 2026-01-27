@@ -56,8 +56,8 @@ class TopicsService:
         # Update all thread references
         query = """
             UPDATE threads
-            SET thread_tag = $2
-            WHERE course_id = $1 AND thread_tag = $3
+            SET topic = $2
+            WHERE course_id = $1 AND topic = $3
         """
         await db.execute(query, course_id, new_name, old_name)
         
@@ -78,8 +78,8 @@ class TopicsService:
         # Set thread_tag to NULL for threads using this topic
         query = """
             UPDATE threads
-            SET thread_tag = NULL
-            WHERE course_id = $1 AND thread_tag = $2
+            SET topic = NULL
+            WHERE course_id = $1 AND topic = $2
         """
         await db.execute(query, course_id, topic_name)
         
@@ -132,11 +132,14 @@ Extract topic names from this syllabus."""
         try:
             model = "gpt-5-nano"
             # Use file_search tool to access the syllabus file from the vector store
+            # vector_store_ids should be part of the tool definition, not tool_resources
             response = client.responses.create(
                 model=model,
                 input=system_prompt + "\n\n" + user_prompt,
-                tools=[{"type": "file_search"}],
-                tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
+                tools=[{
+                    "type": "file_search",
+                    "vector_store_ids": [str(vector_store_id)]
+                }],
             )
             
             # Extract usage and log event

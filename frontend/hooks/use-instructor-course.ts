@@ -9,9 +9,6 @@ import { getApiUrl } from "@/lib/utils"
 export interface useCourseResponse {
     courseName: string
     courseCode: string
-    writingLevel: number | null
-    testingLevel: number | null
-    debuggingLevel: number | null
     courseError: string | null
     courseLoading: boolean
     students: Student[]
@@ -24,18 +21,12 @@ interface PatchCourse {
     id: string
     name?: string
     code?: string
-    writing_level?: number | null
-    testing_level?: number | null
-    debugging_level?: number | null
 }
 
 interface Course {
     id: string
     name: string
     code: string
-    writing_level: number | null
-    testing_level: number | null
-    debugging_level: number | null
 }
 
 interface Student {
@@ -59,9 +50,6 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
 
     const [courseName, setCourseName] = useState<string>("");
     const [courseCode, setCourseCode] = useState<string>("");
-    const [writingLevel, setWritingLevel] = useState<number | null>(0);
-    const [testingLevel, setTestingLevel] = useState<number | null>(0);
-    const [debuggingLevel, setDebuggingLevel] = useState<number | null>(0);
     const [courseError, setCourseError] = useState<string | null>(null);
     const [courseLoading, setCourseLoading] = useState(false);
     const [students, setStudents] = useState<Student[]>([]);
@@ -119,9 +107,6 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
                 const data: Course = await courseRes.json();
                 setCourseName(data.name);
                 setCourseCode(data.code);
-                setWritingLevel(data.writing_level);
-                setTestingLevel(data.testing_level);
-                setDebuggingLevel(data.debugging_level);
             } catch (e: any) {
                 if (e?.name === "AbortError") return;
                 setCourseError(e?.message || "unknown error");
@@ -161,9 +146,6 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
                 console.log("DATA", data);
                 setCourseName(data.name);
                 setCourseCode(data.code);
-                setWritingLevel(data.writing_level);
-                setDebuggingLevel(data.debugging_level);
-                setTestingLevel(data.testing_level);
             } catch (e: any) {
                 if (e?.name === 'AbortError') return;
                 setCourseError(e.message || "unknown error");
@@ -241,9 +223,6 @@ export function useInstructorCourse(courseId: string): useCourseResponse {
     return {
         courseName,
         courseCode,
-        writingLevel,
-        testingLevel,
-        debuggingLevel,
         courseError,
         courseLoading,
         students,

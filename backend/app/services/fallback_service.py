@@ -34,45 +34,45 @@ class FallbackService:
     # Simplified fallback templates (3-4 sentences, no markdown)
     TEMPLATES = {
         ViolationType.CODE_GENERATION_DENIED: (
-            "I understand you'd like me to generate code, but at your current writing level {level}, "
+            "I understand you'd like me to generate code, but based on your course's current settings, "
             "I cannot provide actual code implementations. This restriction helps you build problem-solving skills "
             "by working through the logic yourself. However, I can explain concepts, discuss algorithmic approaches, "
-            "or clarify course materials. Click 'Use Fallback' below to get AI-assisted guidance that works within your level constraints."
+            "or clarify course materials. Click 'Use Fallback' below to get AI-assisted guidance that works within your course constraints."
         ),
         
         ViolationType.CODE_ANALYSIS_DENIED: (
-            "I see you've shared code, but at your current {thread_type} level {level}, I cannot analyze code directly. "
+            "I see you've shared code, but based on your course's current {thread_type} settings, I cannot analyze code directly. "
             "This encourages you to build debugging intuition by articulating problems in your own words. "
             "Instead, try describing what your code is trying to do verbally, and I can discuss the approach conceptually. "
-            "Click 'Use Fallback' below for AI-assisted help that works within your level constraints."
+            "Click 'Use Fallback' below for AI-assisted help that works within your course constraints."
         ),
         
         ViolationType.MULTIPLE_FUNCTIONS_DENIED: (
-            "I understand you're asking for help with multiple functions, but at your current writing level {level}, "
+            "I understand you're asking for help with multiple functions, but based on your course's current settings, "
             "I can only provide code for one function at a time. This constraint helps you break down problems into manageable pieces. "
             "Please focus on one specific function and describe its purpose clearly. "
             "Click 'Use Fallback' below to get AI-assisted guidance for your request."
         ),
         
         ViolationType.NO_VERBAL_SPEC: (
-            "I'd like to help, but at {thread_type} level {level}, I need you to provide a verbal specification before I can generate code. "
+            "I'd like to help, but based on your course's current {thread_type} settings, I need you to provide a verbal specification before I can generate code. "
             "Please tell me what the function should do, what inputs it takes, and what output it should produce. "
             "This ensures you're thinking through the requirements before implementation. "
             "Click 'Use Fallback' below for AI-assisted help with your request."
         ),
         
         ViolationType.SCOPE_TOO_BROAD: (
-            "I can see you're working on a substantial feature, but at your current level, I can't scaffold entire applications. "
+            "I can see you're working on a substantial feature, but based on your course's current settings, I can't scaffold entire applications. "
             "My role is to help you learn by tackling focused, specific problems. "
             "Please break this into smaller pieces and ask about one specific component or function at a time. "
-            "Click 'Use Fallback' below for AI-assisted guidance that works within your level constraints."
+            "Click 'Use Fallback' below for AI-assisted guidance that works within your course constraints."
         ),
         
         ViolationType.GENERIC: (
-            "Your request doesn't align with the current course level constraints, which ensure you're building the right skills at the right pace. "
+            "Your request doesn't align with the current course constraints, which ensure you're building the right skills at the right pace. "
             "I can answer conceptual questions, explain course materials, or provide strategic guidance on problem-solving. "
             "Try rephrasing your question to focus on concepts or strategy rather than asking me to build something. "
-            "Click 'Use Fallback' below for AI-assisted help that works within your level constraints."
+            "Click 'Use Fallback' below for AI-assisted help that works within your course constraints."
         )
     }
 
@@ -80,8 +80,8 @@ class FallbackService:
     def generate_fallback(
         violation_type: ViolationType,
         thread_type: str,
-        level_index: int,
-        student_prompt: str,
+        level_index: Optional[int] = None,
+        student_prompt: str = "",
         violations: Optional[List[Dict]] = None
     ) -> str:
         """
@@ -102,9 +102,8 @@ class FallbackService:
             FallbackService.TEMPLATES[ViolationType.GENERIC]
         )
         
-        # Format the template with level and thread type
+        # Format the template with thread type
         return template.format(
-            level=level_index,
             thread_type=thread_type.title()
         )
 

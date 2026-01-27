@@ -5,34 +5,20 @@ import { getAccessToken } from "@/lib/supabase/client"
 import { getApiUrl } from "@/lib/utils"
 import { CourseRules, RuleObject } from "@/hooks/use-course-rules"
 
-export interface LevelDefault {
-  level_idx: number
-  id: string
-  goals?: string[]
-  prompt_rules?: RuleObject[]
-  output_rules?: RuleObject[]
-  fallback_prompt?: string
-  outputs?: string[]
-  version_num?: number
-  course_id?: string
-  rule_type?: string
-}
-
-export function useAdminRules(threadType: string, levelIdx?: number) {
+export function useAdminRules(threadType: string) {
   const [rules, setRules] = useState<CourseRules | null>(null)
-  const [defaults, setDefaults] = useState<LevelDefault[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchRules = async () => {
-    if (!threadType || levelIdx === undefined) return
+    if (!threadType) return
 
     setLoading(true)
     setError(null)
 
     try {
       const token = await getAccessToken()
-      const res = await fetch(`${getApiUrl()}/admin/rules/defaults/${threadType}/${levelIdx}`, {
+      const res = await fetch(`${getApiUrl()}/admin/rules/defaults/${threadType}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -56,7 +42,7 @@ export function useAdminRules(threadType: string, levelIdx?: number) {
     }
   }
 
-  const fetchAllDefaults = async () => {
+  const updateRules = async (updatedRules: Partial<CourseRules>) => {
     if (!threadType) return
 
     setLoading(true)
@@ -65,34 +51,6 @@ export function useAdminRules(threadType: string, levelIdx?: number) {
     try {
       const token = await getAccessToken()
       const res = await fetch(`${getApiUrl()}/admin/rules/defaults/${threadType}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch default rules")
-      }
-
-      const data = await res.json()
-      setDefaults(data)
-    } catch (e: any) {
-      setError(e?.message || "Failed to fetch default rules")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const updateRules = async (updatedRules: Partial<CourseRules>) => {
-    if (!threadType || levelIdx === undefined) return
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const token = await getAccessToken()
-      const res = await fetch(`${getApiUrl()}/admin/rules/defaults/${threadType}/${levelIdx}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -117,22 +75,14 @@ export function useAdminRules(threadType: string, levelIdx?: number) {
   }
 
   useEffect(() => {
-    if (levelIdx !== undefined) {
-      fetchRules()
-    }
-  }, [threadType, levelIdx])
-
-  useEffect(() => {
-    fetchAllDefaults()
+    fetchRules()
   }, [threadType])
 
   return {
     rules,
-    defaults,
     loading,
     error,
     refetch: fetchRules,
-    refetchAll: fetchAllDefaults,
     updateRules,
   }
 }

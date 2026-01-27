@@ -186,8 +186,7 @@ class ChatService:
         }
         
         if vector_store_id:
-            kwargs["tools"] = [{"type": "file_search"}]
-            kwargs["tool_resources"] = {"file_search": {"vector_store_ids": [vector_store_id]}}
+            kwargs["tools"] = [{"type": "file_search", "vector_store_ids": [str(vector_store_id)]}]
         
         response = client.responses.create(**kwargs)
         
@@ -248,8 +247,7 @@ class ChatService:
             "input": system + "\n" + convo,
         }
         if vector_store_id:
-            kwargs["tools"] = [{"type": "file_search"}]
-            kwargs["tool_resources"] = {"file_search": {"vector_store_ids": [vector_store_id]}}
+            kwargs["tools"] = [{"type": "file_search", "vector_store_ids": [str(vector_store_id)]}]
 
         response = client.responses.create(**kwargs)
         
@@ -316,8 +314,7 @@ class ChatService:
         }
         
         if vector_store_id:
-            kwargs["tools"] = [{"type": "file_search"}]
-            kwargs["tool_resources"] = {"file_search": {"vector_store_ids": [vector_store_id]}}
+            kwargs["tools"] = [{"type": "file_search", "vector_store_ids": [str(vector_store_id)]}]
         
         # Stream the response - yields events as they arrive
         try:
@@ -396,8 +393,7 @@ class ChatService:
             "stream": True,
         }
         if vector_store_id:
-            kwargs["tools"] = [{"type": "file_search"}]
-            kwargs["tool_resources"] = {"file_search": {"vector_store_ids": [vector_store_id]}}
+            kwargs["tools"] = [{"type": "file_search", "vector_store_ids": [str(vector_store_id)]}]
 
         # Stream the response - yields events as they arrive
         try:

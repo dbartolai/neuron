@@ -47,10 +47,6 @@ export default function RulesPage() {
   const [selectedLevel, setSelectedLevel] = useState<number>(0)
   
   const { rules, loading, error, updateRules, resetToDefault } = useCourseRules(courseId, activeTab)
-  const { writingLevel, testingLevel, debuggingLevel } = useInstructorCourse(courseId)
-  
-  const currentLevel = activeTab === "writing" ? writingLevel : activeTab === "testing" ? testingLevel : debuggingLevel
-  const isCustom = currentLevel === null
   
   const handleSave = async (updatedRules: any) => {
     try {
@@ -63,7 +59,7 @@ export default function RulesPage() {
   
   const handleReset = async () => {
     try {
-      await resetToDefault(selectedLevel)
+      await resetToDefault()
       setResetDialogOpen(false)
       setEditMode(false)
     } catch (e) {
@@ -71,42 +67,7 @@ export default function RulesPage() {
     }
   }
   
-  const [availableLevels, setAvailableLevels] = useState<number[]>([])
-  
-  const fetchLevelDefaults = async () => {
-    try {
-      const token = await getAccessToken()
-      const res = await fetch(`${getApiUrl()}/instructor/courses/${courseId}/rules/${activeTab}/defaults`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      
-      if (res.ok) {
-        const data = await res.json()
-        setAvailableLevels(data.levels || [])
-      } else {
-        // Fallback to hardcoded ranges
-        if (activeTab === "writing") {
-          setAvailableLevels(Array.from({ length: 8 }, (_, i) => i))
-        } else {
-          setAvailableLevels(Array.from({ length: 6 }, (_, i) => i))
-        }
-      }
-    } catch (e) {
-      // Fallback to hardcoded ranges
-      if (activeTab === "writing") {
-        setAvailableLevels(Array.from({ length: 8 }, (_, i) => i))
-      } else {
-        setAvailableLevels(Array.from({ length: 6 }, (_, i) => i))
-      }
-    }
-  }
-  
-  React.useEffect(() => {
-    fetchLevelDefaults()
-  }, [activeTab, courseId])
+  // Level defaults fetching is no longer needed since we only have one default per mode
   
   return (
     <>
@@ -141,14 +102,6 @@ export default function RulesPage() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Current Mode:</span>
-          {isCustom ? (
-            <Badge variant="secondary">Custom</Badge>
-          ) : (
-            <Badge variant="outline">Level {currentLevel}</Badge>
-          )}
-        </div>
         
         <Tabs value={activeTab} onValueChange={(v) => {
           setActiveTab(v as "writing" | "testing" | "debugging")
@@ -201,31 +154,17 @@ export default function RulesPage() {
       <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reset to Default Level</DialogTitle>
+            <DialogTitle>Reset to Default</DialogTitle>
             <DialogDescription>
-              Select a level to reset the rules to its default configuration.
+              This will reset the rules for {activeTab} mode to the default configuration. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Select value={String(selectedLevel)} onValueChange={(v) => setSelectedLevel(Number(v))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select level" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableLevels.map((level) => (
-                  <SelectItem key={level} value={String(level)}>
-                    Level {level}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setResetDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleReset}>
-              Reset
+              Reset to Default
             </Button>
           </DialogFooter>
         </DialogContent>

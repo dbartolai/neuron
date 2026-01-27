@@ -7,18 +7,27 @@ import { Upload, Loader2, FileText } from "lucide-react"
 import { getAccessToken } from "@/lib/supabase/client"
 import { getApiUrl } from "@/lib/utils"
 import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface Props {
   courseId: string
   onTopicsGenerated: (topics: string[]) => void
+  hasTopics?: boolean
 }
 
-export function SyllabusUpload({ courseId, onTopicsGenerated }: Props) {
+export function SyllabusUpload({ courseId, onTopicsGenerated, hasTopics = false }: Props) {
   const [uploading, setUploading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [uploadedFileId, setUploadedFileId] = useState<string | null>(null)
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([])
   const [files, setFiles] = useState<File[]>([])
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
@@ -106,7 +115,121 @@ export function SyllabusUpload({ courseId, onTopicsGenerated }: Props) {
       setSuggestedTopics([])
       setUploadedFileId(null)
       setFiles([])
+      setDialogOpen(false)
     }
+  }
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setDialogOpen(false)
+      setSuggestedTopics([])
+      setUploadedFileId(null)
+      setFiles([])
+    }
+  }
+
+  const content = (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <input
+          type="file"
+          accept=".pdf,.docx,.doc"
+          onChange={handleFileSelect}
+          className="hidden"
+          id="syllabus-upload"
+          disabled={uploading || generating}
+        />
+        <label htmlFor="syllabus-upload">
+          <Button variant="outline" asChild disabled={uploading || generating}>
+            <span>
+              <Upload className="h-4 w-4 mr-2" />
+              Select Syllabus File
+            </span>
+          </Button>
+        </label>
+        {files.length > 0 && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <FileText className="h-4 w-4" />
+            {files.map((f) => f.name).join(", ")}
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={handleUpload} disabled={files.length === 0 || uploading || generating}>
+          {uploading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Uploading...
+            </>
+          ) : (
+            "Upload File"
+          )}
+        </Button>
+        {uploadedFileId && (
+          <Button onClick={handleGenerateTopics} disabled={generating}>
+            {generating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              "Generate Topics"
+            )}
+          </Button>
+        )}
+      </div>
+
+      {suggestedTopics.length > 0 && (
+        <div className="space-y-3 pt-4 border-t">
+          <div className="text-sm font-medium">Suggested Topics:</div>
+          <div className="flex flex-wrap gap-2">
+            {suggestedTopics.map((topic, idx) => (
+              <div
+                key={idx}
+                className="px-3 py-1 bg-muted rounded-md text-sm"
+              >
+                {topic}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleAcceptTopics} size="sm">
+              Accept All Topics
+            </Button>
+            <Button
+              onClick={() => setSuggestedTopics([])}
+              variant="outline"
+              size="sm"
+            >
+              Discard
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  if (hasTopics) {
+    return (
+      <>
+        <Button variant="outline" onClick={() => setDialogOpen(true)}>
+          <Upload className="h-4 w-4 mr-2" />
+          Generate Topics from Syllabus
+        </Button>
+        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Generate Topics from Syllabus</DialogTitle>
+              <DialogDescription>
+                Upload a syllabus file to automatically extract topic suggestions
+              </DialogDescription>
+            </DialogHeader>
+            {content}
+          </DialogContent>
+        </Dialog>
+      </>
+    )
   }
 
   return (
@@ -117,84 +240,8 @@ export function SyllabusUpload({ courseId, onTopicsGenerated }: Props) {
           Upload a syllabus file to automatically extract topic suggestions
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <input
-            type="file"
-            accept=".pdf,.docx,.doc"
-            onChange={handleFileSelect}
-            className="hidden"
-            id="syllabus-upload"
-            disabled={uploading || generating}
-          />
-          <label htmlFor="syllabus-upload">
-            <Button variant="outline" asChild disabled={uploading || generating}>
-              <span>
-                <Upload className="h-4 w-4 mr-2" />
-                Select Syllabus File
-              </span>
-            </Button>
-          </label>
-          {files.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <FileText className="h-4 w-4" />
-              {files.map((f) => f.name).join(", ")}
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          <Button onClick={handleUpload} disabled={files.length === 0 || uploading || generating}>
-            {uploading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              "Upload File"
-            )}
-          </Button>
-          {uploadedFileId && (
-            <Button onClick={handleGenerateTopics} disabled={generating}>
-              {generating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Topics"
-              )}
-            </Button>
-          )}
-        </div>
-
-        {suggestedTopics.length > 0 && (
-          <div className="space-y-3 pt-4 border-t">
-            <div className="text-sm font-medium">Suggested Topics:</div>
-            <div className="flex flex-wrap gap-2">
-              {suggestedTopics.map((topic, idx) => (
-                <div
-                  key={idx}
-                  className="px-3 py-1 bg-muted rounded-md text-sm"
-                >
-                  {topic}
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleAcceptTopics} size="sm">
-                Accept All Topics
-              </Button>
-              <Button
-                onClick={() => setSuggestedTopics([])}
-                variant="outline"
-                size="sm"
-              >
-                Discard
-              </Button>
-            </div>
-          </div>
-        )}
+      <CardContent>
+        {content}
       </CardContent>
     </Card>
   )

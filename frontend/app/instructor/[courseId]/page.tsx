@@ -1,16 +1,11 @@
 "use client"
 
-import { useState } from "react"
 import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import {useCourse} from "@/hooks/use-course"
 import { useParams } from "next/navigation"
-import { useRouter } from "next/navigation"
-import { getAccessToken } from "@/lib/supabase/client"
-import { H1, H2, H3, H4, Muted } from "@/components/primitives"
+import { H1, Muted } from "@/components/primitives"
 import { useInstructorCourse } from "@/hooks/use-instructor-course"
-import { Level } from "@/components/instructor/level"
 import { AddContext } from "@/components/instructor/dashboard/add-context"
 import { ViewContext } from "@/components/instructor/dashboard/view-context"  
 import { InboxCard } from "@/components/instructor/dashboard/students"
@@ -24,37 +19,12 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 
-
-
 export default function CoursePage() {
-
-  const params = useParams();
-  console.log(params);
-
   const { courseId } = useParams<{
     courseId: string;
   }>();
 
-  const router = useRouter();
-
-  const {courseName, courseCode, writingLevel, testingLevel, debuggingLevel, files, updateCourse, refetchFiles } = useInstructorCourse(courseId);
-  console.log("NAME: ", courseName)
-
-  const handleLevelChange = async (levelType: string, levelIdx: number | undefined) => {
-    const patch: { id: string; writing_level?: number; testing_level?: number; debugging_level?: number } = {
-      id: courseId
-    };
-
-    if (levelType === "writing") {
-      patch.writing_level = levelIdx;
-    } else if (levelType === "testing") {
-      patch.testing_level = levelIdx;
-    } else if (levelType === "debugging") {
-      patch.debugging_level = levelIdx;
-    }
-
-    await updateCourse(patch);
-  };
+  const {courseName, courseCode, files, refetchFiles } = useInstructorCourse(courseId);
 
   return (
         <>
@@ -67,11 +37,6 @@ export default function CoursePage() {
             <H1 text={courseName}/>
             <Muted text={courseCode}/>
         </div>
-        <div className="flex justify-start min-h-0 gap-[5%] p-4 pt-0 overflow-x-hidden mx-auto w-[60%] min-w-[720px]">
-            <div className="w-[30%]"><Level id={`w-${writingLevel ?? 'custom'}`} courseId={courseId} onLevelChange={handleLevelChange} level={writingLevel}/></div>
-            <div className="w-[30%]"><Level id={`t-${testingLevel ?? 'custom'}`} courseId={courseId} onLevelChange={handleLevelChange} level={testingLevel}/></div>
-            <div className="w-[30%]"><Level id={`d-${debuggingLevel ?? 'custom'}`} courseId={courseId} onLevelChange={handleLevelChange} level={debuggingLevel}/></div>
-        </div>
         <div className="flex flex-4 mt-10 justify-around">
           <div className="flex flex-col w-md gap-4">
           <InboxCard courseId={courseId}/>
@@ -80,7 +45,6 @@ export default function CoursePage() {
           <div className="w-md">
           <AnnouncementInputCard onPostSuccess={refetchFiles}/>
           </div>
-
 
           <div>
           <InsightsCard/>

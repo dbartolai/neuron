@@ -135,7 +135,7 @@ class ThreadService:
     async def get_all_threads_by_course(db: asyncpg.Connection, course_id: UUID) -> List[dict]:
         """Get all threads (across all students) for a course."""
         query = """
-            SELECT id, title, thread_tag, user_id, updated_at
+            SELECT id, title, topic, user_id, updated_at
             FROM threads
             WHERE course_id = $1
             ORDER BY updated_at DESC
@@ -171,7 +171,7 @@ class ThreadService:
         """Update a thread's tag."""
         query = """
             UPDATE threads
-            SET thread_tag = $2
+            SET topic = $2
             WHERE id = $1
         """
         await db.execute(query, thread_id, tag)
@@ -182,7 +182,7 @@ class ThreadService:
         query = """
             SELECT id, title, thread_tag, user_id, updated_at
             FROM threads
-            WHERE course_id = $1 AND thread_tag = $2
+            WHERE course_id = $1 AND topic = $2
             ORDER BY updated_at DESC
         """
         rows = await db.fetch(query, course_id, tag)

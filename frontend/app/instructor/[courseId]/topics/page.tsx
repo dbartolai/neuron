@@ -216,7 +216,13 @@ export default function TopicsPage() {
           />
         )}
 
-        <SyllabusUpload courseId={courseId} onTopicsGenerated={handleTopicsGenerated} />
+        <div className="flex items-center gap-2">
+          <SyllabusUpload 
+            courseId={courseId} 
+            onTopicsGenerated={handleTopicsGenerated}
+            hasTopics={topics.length > 0}
+          />
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">

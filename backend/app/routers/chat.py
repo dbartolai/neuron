@@ -91,7 +91,7 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
         system_msg = FallbackService.generate_fallback(
             violation_type=violation_type,
             thread_type=thread_type,
-            level_index=level_idx,
+            level_index=None,
             student_prompt=body.message,
             violations=violations
         )
@@ -209,7 +209,7 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
             fail_msg = FallbackService.generate_fallback(
                 violation_type=ViolationType.GENERIC,
                 thread_type=thread_type,
-                level_index=level_idx,
+                level_index=None,
                 student_prompt=body.message,
                 violations=violations
             )
@@ -253,25 +253,6 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
     
     # Get course rules from database
     level = await PromptService.get_course_rules(db, course_id, thread_type)
-    
-    # Get level_idx for fallback service (may be None for custom rules)
-    levels_query = """
-        SELECT writing_level, testing_level, debugging_level
-        FROM courses
-        WHERE id = $1
-    """
-    course_row = await db.fetchrow(levels_query, course_id)
-    if course_row is None:
-        raise HTTPException(status_code=404, detail="course not found")
-
-    if thread_type == ThreadType.writing:
-        level_idx = course_row["writing_level"]
-    elif thread_type == ThreadType.testing:
-        level_idx = course_row["testing_level"]
-    elif thread_type == ThreadType.debugging:
-        level_idx = course_row["debugging_level"]
-    else:
-        raise HTTPException(status_code=400, detail="invalid thread type")
 
     # 1) Stage 1 — Student rules evaluation
     # add user chat to logs
@@ -325,37 +306,12 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                 meta_row = await db_conn.fetchrow(meta_query, thread_id)
                 thread_type_val = meta_row["thread_type"] if meta_row else "writing"
                 
-                # Fetch level_idx
-                course_query = """
-                    SELECT t.course_id
-                    FROM threads t
-                    WHERE t.id = $1
-                """
-                course_row = await db_conn.fetchrow(course_query, thread_id)
-                course_id_val = course_row["course_id"] if course_row else None
-                
-                level_idx_val = 0
-                if course_id_val:
-                    levels_query = """
-                        SELECT writing_level, testing_level, debugging_level
-                        FROM courses
-                        WHERE id = $1
-                    """
-                    course_levels = await db_conn.fetchrow(levels_query, course_id_val)
-                    if course_levels:
-                        if thread_type_val == "writing":
-                            level_idx_val = course_levels["writing_level"]
-                        elif thread_type_val == "testing":
-                            level_idx_val = course_levels["testing_level"]
-                        elif thread_type_val == "debugging":
-                            level_idx_val = course_levels["debugging_level"]
-                
                 # Generate pedagogical fallback
                 violation_type = FallbackService.infer_violation_type(violations, body_message)
                 system_msg = FallbackService.generate_fallback(
                     violation_type=violation_type,
                     thread_type=thread_type_val,
-                    level_index=level_idx_val,
+                    level_index=None,
                     student_prompt=body_message,
                     violations=violations
                 )
@@ -445,7 +401,7 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                 error_msg = FallbackService.generate_fallback(
                     violation_type=ViolationType.GENERIC,
                     thread_type=thread_type if 'thread_type' in locals() else "writing",
-                    level_index=level.get("index", 0) if level else 0,
+                    level_index=None,
                     student_prompt=body_message,
                     violations=[{"rule": 0, "reason": "Internal processing error"}]
                 )
@@ -618,25 +574,6 @@ async def use_fallback(body: ChatFallbackRequest, db: asyncpg.Connection = Depen
     # Get course rules from database
     level = await PromptService.get_course_rules(db, course_id, thread_type)
     
-    # Get level_idx for fallback service (may be None for custom rules)
-    levels_query = """
-        SELECT writing_level, testing_level, debugging_level
-        FROM courses
-        WHERE id = $1
-    """
-    course_row = await db.fetchrow(levels_query, course_id)
-    if course_row is None:
-        raise HTTPException(status_code=404, detail="course not found")
-    
-    if thread_type == ThreadType.writing:
-        level_idx = course_row["writing_level"]
-    elif thread_type == ThreadType.testing:
-        level_idx = course_row["testing_level"]
-    elif thread_type == ThreadType.debugging:
-        level_idx = course_row["debugging_level"]
-    else:
-        raise HTTPException(status_code=400, detail="invalid thread type")
-    
     # Extract FALLBACK rules from level (keep for metadata, but don't use in prompt)
     fallback_rules = PromptService.extract_fallback_rules(level)
     
@@ -797,7 +734,7 @@ async def use_fallback(body: ChatFallbackRequest, db: asyncpg.Connection = Depen
                         fail_msg = FallbackService.generate_fallback(
                             violation_type=violation_type_retry,
                             thread_type=thread_type,
-                            level_index=level_idx,
+                            level_index=None,
                             student_prompt=body.original_message,
                             violations=violations_retry
                         )
@@ -832,7 +769,7 @@ async def use_fallback(body: ChatFallbackRequest, db: asyncpg.Connection = Depen
                 error_msg = FallbackService.generate_fallback(
                     violation_type=ViolationType.GENERIC,
                     thread_type=thread_type,
-                    level_index=level_idx,
+                    level_index=None,
                     student_prompt=body.original_message,
                     violations=[{"rule": 0, "reason": "Internal processing error"}]
                 )

@@ -392,21 +392,20 @@ async def delete_interaction(
 
 # Default Rules endpoints
 
-@router.get(path="/rules/defaults/{thread_type}/{level_idx}", response_model=CourseRulesResponse)
+@router.get(path="/rules/defaults/{thread_type}", response_model=CourseRulesResponse)
 async def get_level_default_rules(
     thread_type: ThreadType,
-    level_idx: int,
     db = Depends(get_db),
     user: User = Depends(require_admin)
 ):
     """
-    Admin-only endpoint to get default rules for a specific thread type and level.
+    Admin-only endpoint to get default rules for a specific thread type.
     """
     try:
-        rules = await RulesService.get_level_default_rules(db, thread_type, level_idx)
+        rules = await RulesService.get_level_default_rules(db, thread_type)
         
         if rules is None:
-            raise HTTPException(status_code=404, detail=f"Default rules not found for {thread_type.value} level {level_idx}")
+            raise HTTPException(status_code=404, detail=f"Default rules not found for {thread_type.value}")
         
         return CourseRulesResponse(**rules)
     except HTTPException:
@@ -415,25 +414,18 @@ async def get_level_default_rules(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put(path="/rules/defaults/{thread_type}/{level_idx}", response_model=CourseRulesResponse)
+@router.put(path="/rules/defaults/{thread_type}", response_model=CourseRulesResponse)
 async def create_or_update_level_default_rules(
     thread_type: ThreadType,
-    level_idx: int,
     body: CourseRulesRequest,
     db = Depends(get_db),
     user: User = Depends(require_admin)
 ):
     """
-    Admin-only endpoint to create or update default rules for a specific thread type and level.
+    Admin-only endpoint to create or update default rules for a specific thread type.
     Creates the rules if they don't exist, updates them if they do.
     """
     try:
-        # Validate level_idx ranges
-        if thread_type == ThreadType.writing and (level_idx < 0 or level_idx > 7):
-            raise HTTPException(status_code=400, detail="Writing level must be between 0 and 7")
-        elif thread_type in [ThreadType.testing, ThreadType.debugging] and (level_idx < 0 or level_idx > 5):
-            raise HTTPException(status_code=400, detail=f"{thread_type.value} level must be between 0 and 5")
-        
         # Convert RuleObject list to dict list for database storage
         rules_data = body.model_dump(exclude_unset=True)
         
@@ -451,28 +443,10 @@ async def create_or_update_level_default_rules(
         
         # Create or update default rules
         updated_rules = await RulesService.create_or_update_level_default(
-            db, thread_type, level_idx, rules_data
+            db, thread_type, rules_data
         )
         
         return CourseRulesResponse(**updated_rules)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get(path="/rules/defaults/{thread_type}", response_model=List[LevelDefaultResponse])
-async def list_level_defaults(
-    thread_type: ThreadType,
-    db = Depends(get_db),
-    user: User = Depends(require_admin)
-):
-    """
-    Admin-only endpoint to list all default rules for a thread type.
-    """
-    try:
-        defaults = await RulesService.list_level_defaults(db, thread_type)
-        return [LevelDefaultResponse(**d) for d in defaults]
     except HTTPException:
         raise
     except Exception as e:

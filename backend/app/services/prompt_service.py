@@ -54,31 +54,14 @@ class PromptService:
         rules = await RulesService.get_course_rules(db, course_id, thread_type)
         
         if rules is None:
-            # Fallback to hardcoded levels if database rules not found
-            # Get level from course
-            level_query = """
-                SELECT writing_level, testing_level, debugging_level
-                FROM courses
-                WHERE id = $1
-            """
-            course_row = await db.fetchrow(level_query, course_id)
-            if course_row is None:
-                raise ValueError(f"Course not found: {course_id}")
+            # Fallback to default rules if database rules not found
+            default_rules = await RulesService.get_level_default_rules(db, thread_type)
+            if default_rules is None:
+                raise ValueError(f"No default rules found for {thread_type.value} and course has no custom rules")
             
-            if thread_type == ThreadType.writing:
-                level_idx = course_row["writing_level"]
-            elif thread_type == ThreadType.testing:
-                level_idx = course_row["testing_level"]
-            elif thread_type == ThreadType.debugging:
-                level_idx = course_row["debugging_level"]
-            else:
-                raise ValueError(f"Invalid thread type: {thread_type}")
-            
-            if level_idx is None:
-                raise ValueError(f"Level is NULL for {thread_type.value} - custom rules not found")
-            
-            # Fallback to hardcoded level
-            return PromptService.get_level(thread_type, level_idx)
+            # Convert database rules to level format
+            level_format = RulesService.convert_rules_to_level_format(default_rules)
+            return level_format
         
         # Convert database rules to level format
         level_format = RulesService.convert_rules_to_level_format(rules)

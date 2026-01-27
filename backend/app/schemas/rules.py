@@ -46,12 +46,12 @@ class CourseRulesResponse(BaseModel):
 
 class ResetRulesRequest(BaseModel):
     """Request schema for resetting rules to default."""
-    level: int
+    pass
 
 
 class LevelDefaultResponse(BaseModel):
     """Response schema for level default rules."""
-    level_idx: int
+    level_idx: Optional[int] = None
     id: UUID
     goals: Optional[List[str]] = None
     prompt_rules: Optional[List[Dict[str, Any]]] = None

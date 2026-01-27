@@ -44,25 +44,6 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
     
     # Get course rules from database
     level = await PromptService.get_course_rules(db, course_id, thread_type)
-    
-    # Get level_idx for fallback service (may be None for custom rules)
-    levels_query = """
-        SELECT writing_level, testing_level, debugging_level
-        FROM courses
-        WHERE id = $1
-    """
-    course_row = await db.fetchrow(levels_query, course_id)
-    if course_row is None:
-        raise HTTPException(status_code=404, detail="course not found")
-
-    if thread_type == ThreadType.writing:
-        level_idx = course_row["writing_level"]
-    elif thread_type == ThreadType.testing:
-        level_idx = course_row["testing_level"]
-    elif thread_type == ThreadType.debugging:
-        level_idx = course_row["debugging_level"]
-    else:
-        raise HTTPException(status_code=400, detail="invalid thread type")
 
     user_id = UUID(user["id"])
 
@@ -128,7 +109,7 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
         system_msg = FallbackService.generate_fallback(
             violation_type=violation_type,
             thread_type=thread_type,
-            level_index=level_idx,
+            level_index=None,
             student_prompt=body.first_message,
             violations=violations
         )
@@ -218,7 +199,7 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
             fail_msg = FallbackService.generate_fallback(
                 violation_type=violation_type_retry,
                 thread_type=thread_type,
-                level_index=level_idx,
+                level_index=None,
                 student_prompt=body.first_message,
                 violations=violations_retry
             )
@@ -256,25 +237,6 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
     
     # Get course rules from database
     level = await PromptService.get_course_rules(db, course_id, thread_type)
-    
-    # Get level_idx for fallback service (may be None for custom rules)
-    levels_query = """
-        SELECT writing_level, testing_level, debugging_level
-        FROM courses
-        WHERE id = $1
-    """
-    course_row = await db.fetchrow(levels_query, course_id)
-    if course_row is None:
-        raise HTTPException(status_code=404, detail="course not found")
-
-    if thread_type == ThreadType.writing:
-        level_idx = course_row["writing_level"]
-    elif thread_type == ThreadType.testing:
-        level_idx = course_row["testing_level"]
-    elif thread_type == ThreadType.debugging:
-        level_idx = course_row["debugging_level"]
-    else:
-        raise HTTPException(status_code=400, detail="invalid thread type")
 
     user_id = UUID(user["id"])
 
@@ -413,7 +375,7 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                 system_msg = FallbackService.generate_fallback(
                     violation_type=violation_type,
                     thread_type=thread_type_val,
-                    level_index=level_idx_val,
+                    level_index=None,
                     student_prompt=first_message,
                     violations=violations
                 )
@@ -501,7 +463,7 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                 error_msg = FallbackService.generate_fallback(
                     violation_type=ViolationType.GENERIC,
                     thread_type=thread_type if 'thread_type' in locals() else "writing",
-                    level_index=level.get("index", 0) if level else 0,
+                    level_index=None,
                     student_prompt=first_message,
                     violations=[{"rule": 0, "reason": "Internal processing error"}]
                 )

@@ -92,7 +92,7 @@ export function useCourseRules(courseId: string, ruleType: string) {
     }
   }
 
-  const resetToDefault = async (level: number) => {
+  const resetToDefault = async () => {
     if (!courseId || !ruleType) return
 
     setLoading(true)
@@ -106,7 +106,7 @@ export function useCourseRules(courseId: string, ruleType: string) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ level }),
+        body: JSON.stringify({}),
       })
 
       if (!res.ok) {

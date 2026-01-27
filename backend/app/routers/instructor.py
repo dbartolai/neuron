@@ -345,7 +345,7 @@ async def get_tag_statistics(course_id: UUID, limit: Optional[int] = None, db = 
     # Count threads per tag
     tag_counts: Dict[str, int] = {tag: 0 for tag in thread_tags}
     for thread in all_threads:
-        thread_tag = thread.get("thread_tag")
+        thread_tag = thread.get("topic")
         if thread_tag and thread_tag in tag_counts:
             tag_counts[thread_tag] += 1
     
@@ -501,7 +501,7 @@ async def delete_topic(
     db = Depends(get_db),
     user: User = Depends(me)
 ):
-    """Delete a topic (orphaned threads will have thread_tag set to NULL)."""
+    """Delete a topic (orphaned threads will have topic set to NULL)."""
     if not await UserService.verify_instructor_course(db, course_id, user["id"]):
         raise HTTPException(401, detail="Not authorized to view this course")
     
@@ -849,51 +849,37 @@ async def update_course_rules(
     # Update rules
     updated_rules = await RulesService.update_course_rules(db, rules_id, rules_data)
     
-    # Set level to NULL to indicate custom rules
-    level_field_map = {
-        ThreadType.writing: "writing_level",
-        ThreadType.testing: "testing_level",
-        ThreadType.debugging: "debugging_level",
-    }
-    
-    level_field = level_field_map[rule_type]
-    await db.execute(
-        f"UPDATE courses SET {level_field} = NULL WHERE id = $1",
-        course_id
-    )
-    
     return CourseRulesResponse(**updated_rules)
 
 @router.post(path="/courses/{course_id}/rules/{rule_type}/reset", response_model=CourseRulesResponse)
 async def reset_course_rules(
     course_id: UUID,
     rule_type: ThreadType,
-    body: ResetRulesRequest,
     db = Depends(get_db),
     user: User = Depends(me)
 ):
-    """Reset rules to default for a specific level."""
+    """Reset rules to default."""
     # Verify instructor owns the course
     if not await UserService.verify_instructor_course(db, course_id, user["id"]):
         raise HTTPException(401, "Not authorized to edit this course")
     
-    # Duplicate default rules for the specified level
+    # Duplicate default rules
     new_rules_id = await RulesService.duplicate_default_rules(
-        db, course_id, rule_type, body.level
+        db, course_id, rule_type
     )
     
-    # Update course to link new rules and set level
+    # Update course to link new rules
     field_map = {
-        ThreadType.writing: ("writing_rules", "writing_level"),
-        ThreadType.testing: ("testing_rules", "testing_level"),
-        ThreadType.debugging: ("debugging_rules", "debugging_level"),
+        ThreadType.writing: "writing_rules",
+        ThreadType.testing: "testing_rules",
+        ThreadType.debugging: "debugging_rules",
     }
     
-    rules_field, level_field = field_map[rule_type]
+    rules_field = field_map[rule_type]
     
     await db.execute(
-        f"UPDATE courses SET {rules_field} = $1, {level_field} = $2 WHERE id = $3",
-        new_rules_id, body.level, course_id
+        f"UPDATE courses SET {rules_field} = $1 WHERE id = $2",
+        new_rules_id, course_id
     )
     
     # Get updated rules
@@ -916,17 +902,8 @@ async def get_level_defaults(
     if not await UserService.verify_instructor_course(db, course_id, user["id"]):
         raise HTTPException(401, "Not authorized to view this course")
     
-    # Query level_defaults for this thread_type
-    query = """
-        SELECT DISTINCT level_idx
-        FROM level_defaults
-        WHERE thread_type = $1
-        ORDER BY level_idx
-    """
-    
-    rows = await db.fetch(query, rule_type.value)
-    levels = [row["level_idx"] for row in rows]
-    
-    return {"levels": levels}
+    # This endpoint is no longer needed since we only have one default per thread type
+    # Return empty array for backward compatibility
+    return {"levels": []}
 
         

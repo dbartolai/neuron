@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { WRITING_LEVELS, TESTING_LEVEL, DEBUGGING_LEVELS } from "@/lib/levels"
+import { WRITING_DEFAULT, TESTING_DEFAULT, DEBUGGING_DEFAULT } from "@/lib/levels"
 import { CoursePolicy } from "@/hooks/use-course"
 import { H1 } from "../primitives"
 
@@ -26,25 +26,21 @@ export default function ChatWelcome({
   courseLoading,
   policyLoading,
 }: ChatWelcomeProps) {
-  // Get level info based on selected mode and policy
+  // Get level info based on selected mode
   const getLevelInfo = () => {
-    if (!policy) return null
-
     if (selectedMode === "writing") {
-      return WRITING_LEVELS[policy.writing_level]
+      return WRITING_DEFAULT
     } else if (selectedMode === "testing") {
-      return TESTING_LEVEL[policy.testing_level]
+      return TESTING_DEFAULT
     } else {
-      return DEBUGGING_LEVELS[policy.debugging_level]
+      return DEBUGGING_DEFAULT
     }
   }
 
   const levelInfo = getLevelInfo()
   const isModeDisabled = (mode: ThreadType) => {
-    if (!policy) return false
-    if (mode === "writing") return policy.writing_level === 0
-    if (mode === "testing") return policy.testing_level === 0
-    return policy.debugging_level === 0
+    // Modes are never disabled now - they always use defaults
+    return false
   }
 
   return (
