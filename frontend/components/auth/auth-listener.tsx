@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 
-const PUBLIC_ROUTES = ["/login", "/signup", "/router"];
+const PUBLIC_ROUTES = ["/login", "/signup", "/router", "/instructor-activate"];
 
 export function AuthListener({ children }: { children: React.ReactNode }) {
   const router = useRouter()

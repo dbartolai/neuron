@@ -86,7 +86,7 @@ function ActivateForm() {
             console.log("signup error:", error)
 
             if (error == null) {
-                router.push("/chat");
+                router.push("/instructor/create");
             }
         } catch (error) {
             console.error("Activation error:", error);
@@ -223,4 +223,3 @@ export default function Activate() {
         </Suspense>
     )
 }
-
