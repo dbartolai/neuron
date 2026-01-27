@@ -14,6 +14,8 @@ class RulesService:
     def _parse_rules_dict(row_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Parse JSON strings for prompt_rules and output_rules fields.
         
+        Handles both single JSON strings and arrays of JSON strings.
+        
         Args:
             row_dict: Dictionary from database row
             
@@ -22,23 +24,62 @@ class RulesService:
         """
         parsed = dict(row_dict)
         
-        # Parse prompt_rules if it's a string
-        if "prompt_rules" in parsed and parsed["prompt_rules"] is not None:
-            if isinstance(parsed["prompt_rules"], str):
+        def parse_rules_field(value: Any) -> Any:
+            """Parse a rules field that may be a string, list of strings, or already parsed.
+            
+            Args:
+                value: The field value (string, list, dict, or None)
+                
+            Returns:
+                Parsed value (list of dicts, dict, or None)
+            """
+            if value is None:
+                return None
+            
+            # If it's already a list of dicts, return as is
+            if isinstance(value, list):
+                if len(value) == 0:
+                    return []
+                # Check if first element is already a dict
+                if isinstance(value[0], dict):
+                    return value
+                # Otherwise, parse each string element
+                result = []
+                for item in value:
+                    if isinstance(item, str):
+                        try:
+                            result.append(json.loads(item))
+                        except json.JSONDecodeError:
+                            # If JSON parsing fails, leave as string (will cause validation error downstream)
+                            result.append(item)
+                    elif isinstance(item, dict):
+                        result.append(item)
+                    else:
+                        result.append(item)
+                return result
+            
+            # If it's a single string, parse it
+            if isinstance(value, str):
                 try:
-                    parsed["prompt_rules"] = json.loads(parsed["prompt_rules"])
+                    return json.loads(value)
                 except json.JSONDecodeError:
                     # If JSON parsing fails, leave as string (will cause validation error downstream)
-                    pass
+                    return value
+            
+            # If it's already a dict, return as is
+            if isinstance(value, dict):
+                return value
+            
+            # Otherwise, return as is
+            return value
         
-        # Parse output_rules if it's a string
-        if "output_rules" in parsed and parsed["output_rules"] is not None:
-            if isinstance(parsed["output_rules"], str):
-                try:
-                    parsed["output_rules"] = json.loads(parsed["output_rules"])
-                except json.JSONDecodeError:
-                    # If JSON parsing fails, leave as string (will cause validation error downstream)
-                    pass
+        # Parse prompt_rules
+        if "prompt_rules" in parsed:
+            parsed["prompt_rules"] = parse_rules_field(parsed["prompt_rules"])
+        
+        # Parse output_rules
+        if "output_rules" in parsed:
+            parsed["output_rules"] = parse_rules_field(parsed["output_rules"])
         
         return parsed
 
