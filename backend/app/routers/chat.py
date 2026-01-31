@@ -51,25 +51,6 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
 
     # Get course rules from database
     level = await PromptService.get_course_rules(db, course_id, thread_type)
-    
-    # Get level_idx for fallback service (may be None for custom rules)
-    levels_query = """
-        SELECT writing_level, testing_level, debugging_level
-        FROM courses
-        WHERE id = $1
-    """
-    course_row = await db.fetchrow(levels_query, course_id)
-    if course_row is None:
-        raise HTTPException(status_code=404, detail="course not found")
-
-    if thread_type == ThreadType.writing:
-        level_idx = course_row["writing_level"]
-    elif thread_type == ThreadType.testing:
-        level_idx = course_row["testing_level"]
-    elif thread_type == ThreadType.debugging:
-        level_idx = course_row["debugging_level"]
-    else:
-        raise HTTPException(status_code=400, detail="invalid thread type")
 
     # 1) Stage 1 — Student rules evaluation
     # add user chat to logs

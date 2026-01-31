@@ -345,31 +345,6 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                 meta_row = await db_conn.fetchrow(meta_query, thread_id)
                 thread_type_val = meta_row["thread_type"] if meta_row else "writing"
                 
-                # Fetch level_idx
-                course_query = """
-                    SELECT t.course_id
-                    FROM threads t
-                    WHERE t.id = $1
-                """
-                course_row = await db_conn.fetchrow(course_query, thread_id)
-                course_id_val = course_row["course_id"] if course_row else None
-                
-                level_idx_val = 0
-                if course_id_val:
-                    levels_query = """
-                        SELECT writing_level, testing_level, debugging_level
-                        FROM courses
-                        WHERE id = $1
-                    """
-                    course_levels = await db_conn.fetchrow(levels_query, course_id_val)
-                    if course_levels:
-                        if thread_type_val == "writing":
-                            level_idx_val = course_levels["writing_level"]
-                        elif thread_type_val == "testing":
-                            level_idx_val = course_levels["testing_level"]
-                        elif thread_type_val == "debugging":
-                            level_idx_val = course_levels["debugging_level"]
-                
                 # Generate pedagogical fallback
                 violation_type = FallbackService.infer_violation_type(violations, first_message)
                 system_msg = FallbackService.generate_fallback(
