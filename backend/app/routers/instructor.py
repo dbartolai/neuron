@@ -61,6 +61,45 @@ async def patch_course(body: PatchCourse, db = Depends(get_db), user: User = Dep
 
     return await CourseService.update_course(db, body, user["id"])
 
+@router.delete(path="/courses/{course_id}")
+async def delete_course(course_id: UUID, db = Depends(get_db), user: User = Depends(me)):
+    """Delete a course. Only the instructor who owns the course can delete it."""
+    
+    # Verify instructor owns the course
+    if not await UserService.verify_instructor_course(db, course_id, user["id"]):
+        raise HTTPException(401, "Not authorized to delete this course")
+    
+    # Get course files before deletion to clean up external resources
+    files = await CourseService.get_course_files(db, course_id)
+    vector_store_id = await CourseService.get_vector_store(db, course_id)
+    
+    # Delete course (cascades to enrollment, threads, etc.)
+    deleted = await CourseService.delete_course(db, course_id)
+    
+    if not deleted:
+        raise HTTPException(404, "Course not found")
+    
+    # Clean up external resources (best effort, don't fail if these fail)
+    for file in files:
+        try:
+            client.files.delete(file.openai_file_id)
+        except Exception as e:
+            print(f"Couldn't delete OpenAI file {file.openai_file_id}: {e}")
+        
+        try:
+            supabase.storage.from_("course_files").remove(file.supabase_filepath)
+        except Exception as e:
+            print(f"Couldn't delete Supabase file {file.supabase_filepath}: {e}")
+    
+    # Optionally delete vector store (if it exists)
+    if vector_store_id:
+        try:
+            client.vector_stores.delete(vector_store_id)
+        except Exception as e:
+            print(f"Couldn't delete vector store {vector_store_id}: {e}")
+    
+    return {"message": "Course deleted successfully"}
+
 @router.get(path="/courses/{course_id}/enrollment")
 async def get_enrolled_students(course_id: UUID, db = Depends(get_db), user: User = Depends(me)):
     

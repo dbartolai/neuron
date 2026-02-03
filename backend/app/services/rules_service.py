@@ -202,6 +202,19 @@ class RulesService:
             return rules_id
         
         # Insert new row with course_id set, copying from defaults
+        # Serialize each dict element to JSON string, then PostgreSQL can cast text[] to jsonb[]
+        prompt_rules = default_rules.get("prompt_rules")
+        output_rules = default_rules.get("output_rules")
+        
+        # Convert list of dicts to list of JSON strings for proper jsonb[] encoding
+        prompt_rules_str = None
+        if prompt_rules:
+            prompt_rules_str = [json.dumps(rule) if isinstance(rule, dict) else str(rule) for rule in prompt_rules]
+        
+        output_rules_str = None
+        if output_rules:
+            output_rules_str = [json.dumps(rule) if isinstance(rule, dict) else str(rule) for rule in output_rules]
+        
         query = """
             INSERT INTO course_rules (
                 goals, prompt_rules, output_rules, fallback_prompt, outputs,
@@ -214,8 +227,8 @@ class RulesService:
         rules_id = await db.fetchval(
             query,
             default_rules.get("goals"),
-            default_rules.get("prompt_rules"),
-            default_rules.get("output_rules"),
+            prompt_rules_str,
+            output_rules_str,
             default_rules.get("fallback_prompt"),
             default_rules.get("outputs"),
             default_rules.get("version_num", 1),

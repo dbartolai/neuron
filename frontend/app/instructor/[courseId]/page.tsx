@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
@@ -25,6 +26,11 @@ export default function CoursePage() {
   }>();
 
   const {courseName, courseCode, files, refetchFiles } = useInstructorCourse(courseId);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   return (
         <>
@@ -49,18 +55,20 @@ export default function CoursePage() {
           <div>
           <InsightsCard/>
 
-          <Tabs defaultValue="view" className="mt-8">
-            <TabsList>
-              <TabsTrigger value="add">Add</TabsTrigger>
-              <TabsTrigger value="view">View</TabsTrigger>
-            </TabsList>
-            <TabsContent value="add">
-              <AddContext onUploadSuccess={refetchFiles}/>
-            </TabsContent>
-            <TabsContent value="view">
-              <ViewContext files={files} onRefetch={refetchFiles}/>
-            </TabsContent>
-          </Tabs>
+          {isMounted && (
+            <Tabs defaultValue="view" className="mt-8">
+              <TabsList>
+                <TabsTrigger value="add">Add</TabsTrigger>
+                <TabsTrigger value="view">View</TabsTrigger>
+              </TabsList>
+              <TabsContent value="add">
+                <AddContext onUploadSuccess={refetchFiles}/>
+              </TabsContent>
+              <TabsContent value="view">
+                <ViewContext files={files} onRefetch={refetchFiles}/>
+              </TabsContent>
+            </Tabs>
+          )}
 
         </div>
         </div>

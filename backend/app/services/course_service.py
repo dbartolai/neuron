@@ -406,3 +406,34 @@ class CourseService:
             WHERE id = $1
         """
         await db.execute(query, course_id, tags)
+    
+    @staticmethod
+    async def delete_course(db: asyncpg.Connection, course_id: UUID) -> bool:
+        """Delete a course and all associated data.
+        
+        Args:
+            db: Database connection
+            course_id: UUID of the course to delete
+            
+        Returns:
+            True if course was deleted, False if not found
+        """
+        # Check if course exists
+        check_query = """
+            SELECT id FROM courses WHERE id = $1
+        """
+        course_exists = await db.fetchval(check_query, course_id)
+        
+        if not course_exists:
+            return False
+        
+        # Note: Database foreign key constraints should handle cascading deletes
+        # for enrollment, threads, and other related data.
+        # We'll delete the course record, which should cascade to related tables.
+        
+        delete_query = """
+            DELETE FROM courses WHERE id = $1
+        """
+        
+        await db.execute(delete_query, course_id)
+        return True
