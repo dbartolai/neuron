@@ -8,11 +8,8 @@ from app.services.thread_service import ThreadService
 from app.services.chat_service import ChatService
 from app.services.course_service import CourseService
 from app.services.log_service import LogService
-from app.services.prompt_service import PromptService
 from app.services.enroll_service import EnrollService
-from app.dependencies.levels import GLOBAL_INVARIANTS
 from app.schemas.user import User
-from app.services.fallback_service import FallbackService, ViolationType
 from app.services.topics_service import TopicsService
 from app.schemas.course import CoursePolicy
 from app.schemas.chat import ChatRole, ChatResponse, MessageEntry
@@ -42,9 +39,6 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
     if thread_type is None:
         thread_type = ThreadType.writing
     
-    # Get course rules from database
-    level = await PromptService.get_course_rules(db, course_id, thread_type)
-
     user_id = UUID(user["id"])
 
     # Handle title creation (before thread is created, so no thread_id yet)
@@ -93,124 +87,18 @@ async def create_course_thread(course_id: UUID, body: ThreadRequest, db = Depend
         # Don't fail thread creation if classification fails
         print(f"Failed to classify thread {thread_id} into topic: {str(e)}")
 
-    # Stage 1: Student rules evaluation
-    passed, details = await ChatService.evaluate_student_rules(
-        body.first_message,
-        level.get("student_rules", []),
-        db=db,
-        user_id=user_id,
-        thread_id=thread_id,
-    )
-    if not passed:
-        violations = details.get("violations", [])
-        
-        # Use deterministic fallback service (pedagogy-first, not generic rejection)
-        violation_type = FallbackService.infer_violation_type(violations, body.first_message)
-        system_msg = FallbackService.generate_fallback(
-            violation_type=violation_type,
-            thread_type=thread_type,
-            level_index=None,
-            student_prompt=body.first_message,
-            violations=violations
-        )
-        
-        await LogService.insert_message(db, thread_id, ChatRole.system, system_msg)
-        # Update thread summary after assistant message
-        await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
-        return {"id": thread_id}
-
-    # Stage 2: Chat with guardrails
+    # Direct chat (no prompt/rule intervention)
     messages: List[MessageEntry] = [
         MessageEntry(role=ChatRole.student, content=body.first_message, timestamp="")
     ]
 
-    # Check if file_search is required and get vector store if available
-    # File exploration is available at all levels when explicitly requested
-    requires_file_search: bool = bool(details.get("requires_file_search", False))
-
-    vector_store_id: str | None = None
-    if requires_file_search:
-        vector_store_id = await CourseService.get_vector_store(db, course_id)
-
-    # Build guardrails with global invariants prepended
-    guardrails = list(GLOBAL_INVARIANTS) + list(level.get("guardrails", []))
-    response_rules = list(level.get("response_rules", []))
-    
-    # Augment guardrails and response rules if file_search is available
-    if vector_store_id:
-        guardrails += [
-            "Use the file_search tool only when necessary to retrieve exact details from course files.",
-            "When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
-        ]
-        response_rules += [
-            "If file_search was used, include citations with filename and a minimal quoted snippet.",
-        ]
-
-    assistant_output: str = await ChatService.chat_with_guardrails(
+    assistant_output: str = await ChatService.chat_direct(
         messages,
-        guardrails,
-        vector_store_id=vector_store_id,
         db=db,
         user_id=user_id,
         thread_id=thread_id,
     )
-
-    # Stage 3: Response rule evaluation
-    resp_passed, resp_details = await ChatService.evaluate_response_rules(
-        body.first_message,
-        assistant_output,
-        response_rules,
-        db=db,
-        user_id=user_id,
-        thread_id=thread_id,
-    )
-
-    if not resp_passed:
-        violations = resp_details.get("violations", [])
-        vtext = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Unspecified violations"
-        corrective_guardrail = [
-            f"Follow all response rules strictly. Your previous response violated: {vtext}. Revise and answer again without violating any rules."
-        ]
-        assistant_output_retry: str = await ChatService.chat_with_guardrails(
-            messages,
-            guardrails + corrective_guardrail,
-            vector_store_id=vector_store_id,
-            db=db,
-            user_id=user_id,
-            thread_id=thread_id,
-        )
-        retry_passed, _ = await ChatService.evaluate_response_rules(
-            body.first_message,
-            assistant_output_retry,
-            response_rules,
-            db=db,
-            user_id=user_id,
-            thread_id=thread_id,
-        )
-        if retry_passed:
-            chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output_retry)
-            # Update thread summary after assistant message
-            await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
-            return {"id": thread_id}
-        else:
-            # Response validation failed twice - use deterministic fallback
-            violations_retry = resp_details.get("violations", [])
-            violation_type_retry = FallbackService.infer_violation_type(violations_retry, body.first_message)
-            fail_msg = FallbackService.generate_fallback(
-                violation_type=violation_type_retry,
-                thread_type=thread_type,
-                level_index=None,
-                student_prompt=body.first_message,
-                violations=violations_retry
-            )
-            await LogService.insert_message(db, thread_id, ChatRole.assistant, fail_msg)
-            # Update thread summary after assistant message (even if it's a failure message)
-            await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
-            return {"id": thread_id}
-
-    # Success on first attempt
     chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output)
-    # Update thread summary after assistant message
     await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
     return {"id": thread_id}
 
@@ -235,9 +123,6 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
     if thread_type is None:
         thread_type = ThreadType.writing
     
-    # Get course rules from database
-    level = await PromptService.get_course_rules(db, course_id, thread_type)
-
     user_id = UUID(user["id"])
 
     # Handle title creation (before thread is created, so no thread_id yet)
@@ -294,23 +179,10 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
         # Don't fail thread creation if classification fails
         print(f"Failed to classify thread {thread_id} into topic: {str(e)}")
 
-    # Stage 1: Student rules evaluation
-    passed, details = await ChatService.evaluate_student_rules(
-        body.first_message,
-        level.get("student_rules", []),
-        db=db,
-        user_id=user_id,
-        thread_id=thread_id,
-    )
-
     # Store context for the generator
     stream_context = {
         "thread_id": thread_id,
-        "course_id": course_id,
         "first_message": body.first_message,
-        "passed": passed,
-        "details": details,
-        "level": level,
         "user_id": user_id,
     }
 
@@ -319,10 +191,6 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
         
         thread_id = stream_context["thread_id"]
         first_message = stream_context["first_message"]
-        passed = stream_context["passed"]
-        details = stream_context["details"]
-        level = stream_context["level"]
-        course_id = stream_context["course_id"]
         user_id = stream_context["user_id"]
         
         # Emit thread_created event immediately so frontend can redirect
@@ -332,76 +200,16 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
         # (the dependency-injected connection is released when endpoint returns)
         async with db_module.pool.acquire() as db_conn:
 
-            # If student rules check failed, send pedagogical fallback as tokens then done
-            if not passed:
-                violations = details.get("violations", [])
-                
-                # Fetch thread_type for fallback generation
-                meta_query = """
-                    SELECT t.thread_type
-                    FROM threads t
-                    WHERE t.id = $1
-                """
-                meta_row = await db_conn.fetchrow(meta_query, thread_id)
-                thread_type_val = meta_row["thread_type"] if meta_row else "writing"
-                
-                # Generate pedagogical fallback
-                violation_type = FallbackService.infer_violation_type(violations, first_message)
-                system_msg = FallbackService.generate_fallback(
-                    violation_type=violation_type,
-                    thread_type=thread_type_val,
-                    level_index=None,
-                    student_prompt=first_message,
-                    violations=violations
-                )
-                
-                system_message_id = await LogService.insert_message(db_conn, thread_id, ChatRole.system, system_msg)
-                # Update thread summary after assistant message
-                await ThreadService.update_thread_summary_from_messages(db_conn, thread_id, user_id)
-                
-                # Check if FALLBACK rules exist in level configuration
-                fallback_rules = PromptService.extract_fallback_rules(level)
-                has_fallback = len(fallback_rules) > 0
-                
-                # Emit violation event with metadata for fallback functionality
-                yield f"event: violation\ndata: {json.dumps({'has_fallback': has_fallback, 'system_message_id': str(system_message_id), 'original_message': first_message})}\n\n"
-                
-                # Send the error message as tokens so it displays in the chat
-                yield f"event: token\ndata: {json.dumps({'content': system_msg})}\n\n"
-                yield f"event: done\ndata: {json.dumps({})}\n\n"
-                return
-
-            # Stage 2: Chat with guardrails (streaming)
+            # Direct chat (no prompt/rule intervention)
             messages: List[MessageEntry] = [
                 MessageEntry(role=ChatRole.student, content=first_message, timestamp="")
             ]
 
-            # Check if file_search is required and get vector store if available
-            # File exploration is available at all levels when explicitly requested
-            requires_file_search: bool = bool(details.get("requires_file_search", False))
-
-            vector_store_id: str | None = None
-            if requires_file_search:
-                vector_store_id = await CourseService.get_vector_store(db_conn, course_id)
-
-            # Build guardrails with global invariants prepended
-            guardrails = list(GLOBAL_INVARIANTS) + list(level.get("guardrails", []))
-            
-            # Augment guardrails if file_search is available
-            if vector_store_id:
-                guardrails += [
-                    "Use the file_search tool only when necessary to retrieve exact details from course files.",
-                    "When relying on file contents, cite the filename and quote only the minimal relevant snippet.",
-                ]
-
-            # Stream the response and capture usage
             full_response = ""
             usage_info = {}
             try:
-                async for token in ChatService.chat_with_guardrails_stream(
+                async for token in ChatService.chat_direct_stream(
                     messages,
-                    guardrails,
-                    vector_store_id=vector_store_id,
                     usage_info=usage_info,
                 ):
                     full_response += token
@@ -433,16 +241,7 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
                     except Exception as e:
                         print(f"Failed to log AI event for streaming thread creation: {str(e)}")
             except Exception as e:
-                # Log the error and send a pedagogical fallback to the client
-                # Use generic fallback for unexpected errors
-                error_msg = FallbackService.generate_fallback(
-                    violation_type=ViolationType.GENERIC,
-                    thread_type=thread_type if 'thread_type' in locals() else "writing",
-                    level_index=None,
-                    student_prompt=first_message,
-                    violations=[{"rule": 0, "reason": "Internal processing error"}]
-                )
-                await LogService.insert_message(db_conn, thread_id, ChatRole.system, error_msg)
+                error_msg = "Failed to stream chat response."
                 yield f"event: error\ndata: {json.dumps({'message': error_msg})}\n\n"
                 print(f"Error in thread stream: {str(e)}")
         

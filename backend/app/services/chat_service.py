@@ -24,6 +24,33 @@ def _format_rules(title: str, rules: List[str]) -> str:
     return f"{title}\n" + "\n".join(rules) + "\n"
 
 
+def _map_role_for_openai(role: Any) -> Optional[str]:
+    """Map internal chat roles to OpenAI roles for direct chat."""
+    normalized = getattr(role, "value", role)
+    if normalized == "student":
+        return "user"
+    if normalized == "assistant":
+        return "assistant"
+    # Skip system messages for direct, unguardrailed chat.
+    return None
+
+
+def _build_direct_input(messages: List[MessageEntry]) -> List[Dict[str, Any]]:
+    """Build OpenAI input payload without injecting system prompts."""
+    payload: List[Dict[str, Any]] = []
+    for m in messages:
+        role = _map_role_for_openai(m.role)
+        if role is None:
+            continue
+        payload.append(
+            {
+                "role": role,
+                "content": [{"type": "input_text", "text": m.content}],
+            }
+        )
+    return payload
+
+
 class ChatService:
 
     # ------------ Stage 1: Student Rules Check ------------
@@ -216,6 +243,47 @@ class ChatService:
         
         return response.output_text
 
+    # ------------ Stage 2: Direct Chat (No Prompt Injection) ------------
+    @staticmethod
+    async def chat_direct(
+        messages: List[MessageEntry],
+        db: Optional[asyncpg.Connection] = None,
+        user_id: Optional[UUID] = None,
+        thread_id: Optional[UUID] = None,
+        chat_id: Optional[UUID] = None,
+    ) -> str:
+        """Send chat to OpenAI with no system prompt or guardrails."""
+        model = "gpt-5.1"
+        response = client.responses.create(
+            model=model,
+            input=_build_direct_input(messages),
+        )
+
+        usage = getattr(response, 'usage', None)
+        if db and usage:
+            try:
+                tokens_in = getattr(usage, 'input_tokens', None)
+                tokens_out = getattr(usage, 'output_tokens', None)
+                tokens_total = getattr(usage, 'total_tokens', None)
+
+                await AIEventsService.log_ai_event(
+                    db=db,
+                    provider="openai",
+                    model=model,
+                    user_id=user_id,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    tokens_total=tokens_total,
+                    chat_id=chat_id,
+                    thread_id=thread_id,
+                    purpose="student_chat",
+                    response_id=getattr(response, 'id', None),
+                )
+            except Exception as e:
+                print(f"Failed to log AI event for chat_direct: {str(e)}")
+
+        return response.output_text
+
     # ------------ Stage 2: Guardrailed Chat ------------
     @staticmethod
     async def chat_with_guardrails(
@@ -360,6 +428,58 @@ class ChatService:
                     usage_info['response_id'] = final_response_id
         except Exception as e:
             # Re-raise to be handled by the router
+            raise Exception(f"OpenAI API error: {str(e)}") from e
+
+    # ------------ Stage 2b: Direct Chat with Streaming ------------
+    @staticmethod
+    async def chat_direct_stream(
+        messages: List[MessageEntry],
+        usage_info: Optional[Dict[str, Any]] = None,
+    ) -> AsyncGenerator[str, None]:
+        """Stream direct chat with no system prompt or guardrails."""
+        model = "gpt-5.1"
+        kwargs = {
+            "model": model,
+            "input": _build_direct_input(messages),
+            "stream": True,
+        }
+
+        try:
+            response_stream = client.responses.create(**kwargs)
+
+            final_usage = None
+            final_response_id = None
+            for event in response_stream:
+                if event.type == "response.output_text.delta":
+                    yield event.delta
+                elif event.type == "response.completed":
+                    if hasattr(event, 'usage') and event.usage is not None:
+                        final_usage = event.usage
+                    elif hasattr(event, 'response') and hasattr(event.response, 'usage') and event.response.usage is not None:
+                        final_usage = event.response.usage
+                    if hasattr(event, 'response') and hasattr(event.response, 'id'):
+                        final_response_id = event.response.id
+                    elif hasattr(event, 'id'):
+                        final_response_id = event.id
+                elif hasattr(event, 'usage') and event.usage is not None:
+                    final_usage = event.usage
+                elif hasattr(event, 'response') and hasattr(event.response, 'usage') and event.response.usage is not None:
+                    final_usage = event.response.usage
+
+                if final_response_id is None:
+                    if hasattr(event, 'response') and hasattr(event.response, 'id'):
+                        final_response_id = event.response.id
+                    elif hasattr(event, 'id'):
+                        final_response_id = event.id
+
+            if usage_info is not None and final_usage is not None:
+                usage_info['model'] = model
+                usage_info['tokens_in'] = getattr(final_usage, 'input_tokens', None)
+                usage_info['tokens_out'] = getattr(final_usage, 'output_tokens', None)
+                usage_info['tokens_total'] = getattr(final_usage, 'total_tokens', None)
+                if final_response_id:
+                    usage_info['response_id'] = final_response_id
+        except Exception as e:
             raise Exception(f"OpenAI API error: {str(e)}") from e
 
     # ------------ Stage 2b: Guardrailed Chat with Streaming ------------

@@ -14,33 +14,30 @@ from app.services.thread_service import ThreadService
 from app.services.enroll_service import EnrollService
 from app.services.feedback_service import FeedbackService
 from app.services.user_service import UserService
+from app.schemas.thread import ThreadType
+from app.services.prompt_service import PromptService
+from app.services.fallback_service import FallbackService, ViolationType
 from uuid import UUID
 import asyncpg
 import json
-from app.schemas.thread import ThreadType
-from app.services.prompt_service import PromptService
-from app.dependencies.levels import GLOBAL_INVARIANTS
-from app.services.fallback_service import FallbackService, ViolationType
 
 
 router = APIRouter(tags=["chat"])
 
 @router.post(path="/", response_model=ChatResponse)
 async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db), user: User = Depends(me)) -> ChatResponse:
-
     # get thread id via the body
     thread_id: UUID = body.thread_id
 
-    # 0) Fetch thread metadata and course levels
+    # Fetch thread metadata
     meta_query = """
-        SELECT t.thread_type, t.course_id
+        SELECT t.course_id
         FROM threads t
         WHERE t.id = $1
     """
     meta_row = await db.fetchrow(meta_query, thread_id)
     if meta_row is None:
         raise HTTPException(status_code=404, detail="thread not found")
-    thread_type: ThreadType = meta_row["thread_type"]
     course_id: UUID = meta_row["course_id"]
 
     # Verify thread belongs to user and user is enrolled in course
@@ -49,50 +46,11 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
     if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
         raise HTTPException(401, "Not authorized to access this course")
 
-    # Get course rules from database
-    level = await PromptService.get_course_rules(db, course_id, thread_type)
-
-    # 1) Stage 1 — Student rules evaluation
     # add user chat to logs
     await LogService.insert_message(db, thread_id, ChatRole.student, body.message)
 
     user_id = UUID(user["id"])
-    passed, details = await ChatService.evaluate_student_rules(
-        body.message,
-        level.get("student_rules", []),
-        db=db,
-        user_id=user_id,
-        thread_id=thread_id,
-    )
-    if not passed:
-        violations = details.get("violations", [])
-        
-        # Use deterministic fallback service (pedagogy-first, not generic rejection)
-        violation_type = FallbackService.infer_violation_type(violations, body.message)
-        system_msg = FallbackService.generate_fallback(
-            violation_type=violation_type,
-            thread_type=thread_type,
-            level_index=None,
-            student_prompt=body.message,
-            violations=violations
-        )
-        
-        # Log and return pedagogical guidance (as system so it doesn't pollute LLM context)
-        await LogService.insert_message(db, thread_id, ChatRole.system, system_msg)
-        return ChatResponse(role=ChatRole.system, content=system_msg)
 
-    # 2) Get thread topic (set during thread creation)
-    thread_topic = await ThreadService.get_thread_topic(db, thread_id)
-    
-    # 3) Stage 2 — Chat with full prompt architecture
-    # Build complete system prompt with all layers (using thread topic)
-    full_system_prompt = await PromptService.build_full_system_prompt(
-        db=db,
-        course_id=course_id,
-        thread_type=thread_type,
-        detected_topic=thread_topic  # Read from thread, not detected on each message
-    )
-    
     # Get conversation history
     prior_logs: List[MessageLog] = await LogService.get_messages_from_thread(db, thread_id)
     messages: List[MessageEntry] = [
@@ -100,106 +58,14 @@ async def send_chat(body: ChatRequest, db: asyncpg.Connection = Depends(get_db),
         for chat in prior_logs
     ]
 
-    # Decide whether to enable file_search for this turn
-    # File exploration is available at all levels when explicitly requested
-    requires_file_search: bool = bool(details.get("requires_file_search", False))
-
-    vector_store_id: str | None = None
-    if requires_file_search:
-        from app.services.course_service import CourseService  # local import to avoid cycles
-        vector_store_id = await CourseService.get_vector_store(db, course_id)
-
-    # Call model with full prompt
-    assistant_output: str = await ChatService.chat_with_full_prompt(
-        system_prompt=full_system_prompt,
+    # Call model directly (no injected system prompt/guardrails)
+    assistant_output: str = await ChatService.chat_direct(
         messages=messages,
-        vector_store_id=vector_store_id,
         db=db,
         user_id=user_id,
         thread_id=thread_id,
     )
-
-    # 4) Stage 3 — Response rule evaluation with type awareness
-    resp_passed, resp_details = await ChatService.evaluate_response_rules(
-        body.message,
-        assistant_output,
-        level.get("output_rules", []),
-        db=db,
-        user_id=user_id,
-        thread_id=thread_id,
-    )
-
-    if not resp_passed:
-        violations = resp_details.get("violations", [])
-        require_violations = resp_details.get("require_violations", [])
-        deny_violations = resp_details.get("deny_violations", [])
-        
-        # Build corrective prompt based on violation types
-        corrective_instructions = []
-        
-        if require_violations:
-            req_text = "; ".join(require_violations)
-            corrective_instructions.append(
-                f"Your response is missing REQUIRED elements: {req_text}. "
-                "Regenerate your response and ensure these required elements are included."
-            )
-        
-        if deny_violations:
-            deny_text = "; ".join(deny_violations)
-            corrective_instructions.append(
-                f"Your response included DENIED content: {deny_text}. "
-                "Regenerate your response without this forbidden content."
-            )
-        
-        if not corrective_instructions:
-            # Fallback for violations without types
-            vtext = "; ".join([f"#{v.get('rule')}: {v.get('reason')}" for v in violations]) or "Unspecified violations"
-            corrective_instructions.append(
-                f"Follow all response rules strictly. Your previous response violated: {vtext}. Revise and answer again without violating any rules."
-            )
-        
-        # Retry with corrective instructions
-        corrective_prompt = full_system_prompt + "\n\n" + " ".join(corrective_instructions)
-        
-        assistant_output_retry: str = await ChatService.chat_with_full_prompt(
-            system_prompt=corrective_prompt,
-            messages=messages,
-            vector_store_id=vector_store_id,
-            db=db,
-            user_id=user_id,
-            thread_id=thread_id,
-        )
-        
-        # Evaluate retry
-        retry_passed, _ = await ChatService.evaluate_response_rules(
-            body.message,
-            assistant_output_retry,
-            level.get("output_rules", []),
-            db=db,
-            user_id=user_id,
-            thread_id=thread_id,
-        )
-        
-        if retry_passed:
-            chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output_retry)
-            # Update thread summary after assistant message
-            await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
-            return ChatResponse(role=ChatRole.assistant, content=assistant_output_retry)
-        else:
-            # Two failures - return error fallback
-            fail_msg = FallbackService.generate_fallback(
-                violation_type=ViolationType.GENERIC,
-                thread_type=thread_type,
-                level_index=None,
-                student_prompt=body.message,
-                violations=violations
-            )
-            await LogService.insert_message(db, thread_id, ChatRole.system, fail_msg)
-            return ChatResponse(role=ChatRole.system, content=fail_msg)
-
-    # success on first attempt
     chat_id = await LogService.insert_message(db, thread_id, ChatRole.assistant, assistant_output)
-    # Update thread summary after assistant message
     await ThreadService.update_thread_summary_from_messages(db, thread_id, user_id)
     return ChatResponse(role=ChatRole.assistant, content=assistant_output)
 
@@ -211,16 +77,15 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
     # get thread id via the body
     thread_id: UUID = body.thread_id
 
-    # 0) Fetch thread metadata and course levels
+    # Fetch thread metadata
     meta_query = """
-        SELECT t.thread_type, t.course_id
+        SELECT t.course_id
         FROM threads t
         WHERE t.id = $1
     """
     meta_row = await db.fetchrow(meta_query, thread_id)
     if meta_row is None:
         raise HTTPException(status_code=404, detail="thread not found")
-    thread_type: Optional[ThreadType] = meta_row["thread_type"]
     course_id: UUID = meta_row["course_id"]
 
     # Verify thread belongs to user and user is enrolled in course
@@ -229,33 +94,12 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
     if not await EnrollService.verify_student_enrollment(db, course_id, user["id"]):
         raise HTTPException(401, "Not authorized to access this course")
 
-    if thread_type is None:
-        thread_type = ThreadType.writing
-    
-    # Get course rules from database
-    level = await PromptService.get_course_rules(db, course_id, thread_type)
-
-    # 1) Stage 1 — Student rules evaluation
     # add user chat to logs
     await LogService.insert_message(db, thread_id, ChatRole.student, body.message)
 
     user_id = UUID(user["id"])
-    passed, details = await ChatService.evaluate_student_rules(
-        body.message,
-        level.get("student_rules", []),
-        db=db,
-        user_id=user_id,
-        thread_id=thread_id,
-    )
-    
-    # Prepare data for the stream generator
     stream_context = {
         "thread_id": thread_id,
-        "course_id": course_id,
-        "body_message": body.message,
-        "passed": passed,
-        "details": details,
-        "level": level,
         "user_id": user_id,
     }
 
@@ -263,89 +107,23 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
         nonlocal stream_context
         
         thread_id = stream_context["thread_id"]
-        body_message = stream_context["body_message"]
-        passed = stream_context["passed"]
-        details = stream_context["details"]
-        level = stream_context["level"]
-        course_id = stream_context["course_id"]
         user_id = stream_context["user_id"]
         
         # Acquire a fresh DB connection for operations inside the generator
         # (the dependency-injected connection is released when endpoint returns)
         async with db_module.pool.acquire() as db_conn:
         
-            # If student rules check failed, send pedagogical fallback and stop
-            if not passed:
-                violations = details.get("violations", [])
-                
-                # Fetch thread_type for fallback generation
-                meta_query = """
-                    SELECT t.thread_type
-                    FROM threads t
-                    WHERE t.id = $1
-                """
-                meta_row = await db_conn.fetchrow(meta_query, thread_id)
-                thread_type_val = meta_row["thread_type"] if meta_row else "writing"
-                
-                # Generate pedagogical fallback
-                violation_type = FallbackService.infer_violation_type(violations, body_message)
-                system_msg = FallbackService.generate_fallback(
-                    violation_type=violation_type,
-                    thread_type=thread_type_val,
-                    level_index=None,
-                    student_prompt=body_message,
-                    violations=violations
-                )
-                
-                system_message_id = await LogService.insert_message(db_conn, thread_id, ChatRole.system, system_msg)
-                
-                # Check if FALLBACK rules exist in level configuration
-                fallback_rules = PromptService.extract_fallback_rules(level)
-                has_fallback = len(fallback_rules) > 0
-                
-                # Emit violation event with metadata for fallback functionality
-                yield f"event: violation\ndata: {json.dumps({'has_fallback': has_fallback, 'system_message_id': str(system_message_id), 'original_message': body_message})}\n\n"
-                
-                # Also emit error event for backward compatibility
-                yield f"event: error\ndata: {json.dumps({'message': system_msg})}\n\n"
-                yield f"event: done\ndata: {json.dumps({})}\n\n"
-                return
-
-            # 2) Get thread topic (set during thread creation)
-            thread_topic = await ThreadService.get_thread_topic(db_conn, thread_id)
-            
-            # 3) Stage 2 — Chat with full prompt architecture (streaming)
-            # Build complete system prompt with all layers (using thread topic)
-            full_system_prompt = await PromptService.build_full_system_prompt(
-                db=db_conn,
-                course_id=course_id,
-                thread_type=thread_type_val if 'thread_type_val' in locals() else thread_type,
-                detected_topic=thread_topic  # Read from thread, not detected on each message
-            )
-            
             prior_logs: List[MessageLog] = await LogService.get_messages_from_thread(db_conn, thread_id)
             messages: List[MessageEntry] = [
                 MessageEntry(role=ChatRole(chat.role), content=chat.message, timestamp=chat.created_at.isoformat())
                 for chat in prior_logs
             ]
 
-            # Decide whether to enable file_search for this turn
-            # File exploration is available at all levels when explicitly requested
-            requires_file_search: bool = bool(details.get("requires_file_search", False))
-
-            vector_store_id: str | None = None
-            if requires_file_search:
-                from app.services.course_service import CourseService
-                vector_store_id = await CourseService.get_vector_store(db_conn, course_id)
-
-            # Stream the response and capture usage
             full_response = ""
             usage_info = {}
             try:
-                async for token in ChatService.chat_with_full_prompt_stream(
-                    system_prompt=full_system_prompt,
+                async for token in ChatService.chat_direct_stream(
                     messages=messages,
-                    vector_store_id=vector_store_id,
                     usage_info=usage_info,
                 ):
                     full_response += token
@@ -377,18 +155,8 @@ async def send_chat_stream(body: ChatRequest, db: asyncpg.Connection = Depends(g
                     except Exception as e:
                         print(f"Failed to log AI event for streaming chat: {str(e)}")
             except Exception as e:
-                # Log the error and send a pedagogical fallback to the client
-                # Use generic fallback for unexpected errors
-                error_msg = FallbackService.generate_fallback(
-                    violation_type=ViolationType.GENERIC,
-                    thread_type=thread_type if 'thread_type' in locals() else "writing",
-                    level_index=None,
-                    student_prompt=body_message,
-                    violations=[{"rule": 0, "reason": "Internal processing error"}]
-                )
-                await LogService.insert_message(db_conn, thread_id, ChatRole.system, error_msg)
+                error_msg = "Failed to stream chat response."
                 yield f"event: error\ndata: {json.dumps({'message': error_msg})}\n\n"
-                # Log the actual error for debugging (you might want to use a proper logger)
                 print(f"Error in chat stream: {str(e)}")
         
         yield f"event: done\ndata: {json.dumps({})}\n\n"
