@@ -36,12 +36,13 @@ export function NavMain({
   items: {
     title: string
     url: string
-    icon: LucideIcon
+    icon: LucideIcon | null
     isActive?: boolean
     items?: {
       title: string
       url: string
       id?: string
+      icon?: LucideIcon
     }[]
   }[]
   updateThreadName?: (threadId: string, newName: string) => Promise<void>
@@ -97,7 +98,7 @@ export function NavMain({
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip={item.title}>
                 <Link href={item.url}>
-                  <item.icon />
+                  {item.icon && <item.icon />}
                   <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>
@@ -148,6 +149,7 @@ export function NavMain({
                                 <>
                                   <SidebarMenuSubButton asChild className="flex-1 min-w-0">
                                     <Link href={subItem.url}>
+                                      {subItem.icon && <subItem.icon />}
                                       <span className="truncate">{subItem.title}</span>
                                     </Link>
                                   </SidebarMenuSubButton>

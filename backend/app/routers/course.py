@@ -139,7 +139,8 @@ async def create_course_thread_stream(course_id: UUID, body: ThreadRequest, db =
         user_id=user["id"], 
         thread_name=new_title, 
         thread_type=body.thread_type
-    )
+    )    
+
 
     # Add first message to logs
     await LogService.insert_message(db, thread_id, ChatRole.student, body.first_message)

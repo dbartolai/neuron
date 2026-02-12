@@ -101,9 +101,14 @@ class ThreadService:
             RETURNING id
         """
 
-        row = await db.fetchrow(query, course_id, user_id, thread_name, thread_type)
-
-        return row["id"]
+        for i in range(1, 10):
+            try:
+                row = await db.fetchrow(query, course_id, user_id, thread_name, thread_type)
+                return row["id"]
+            except asyncpg.UniqueViolationError:
+                thread_name = f"{thread_name} ({i})"
+                continue
+        return None
     
     @staticmethod
     async def get_thread_name_by_id(db: asyncpg.Connection, thread_id: UUID) -> str:

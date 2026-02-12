@@ -83,7 +83,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return courses.map((c) => ({
       title: c.title,
       url: c.url,
-      icon: c.icon,
+      icon: null,
       isActive: courseId === c.id,
       items: c.items,
     }));
