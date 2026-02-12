@@ -417,50 +417,6 @@ export default function NeuronLandingPage() {
 
         {/* SECTION 6 — ABOUT */}
         <section id="about" className="mt-20 md:mt-24 pb-16">
-          <h2 className="font-serif text-2xl md:text-3xl tracking-tight">Neuron is the first product from Ceria</h2>
-
-          <div className="mt-8 grid gap-6 md:grid-cols-12">
-            <div className="md:col-span-7 rounded-3xl border border-black/10 bg-white/40 shadow-sm p-6 md:p-8">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Ceria builds elegant, enterprise-grade software for higher education. Neuron focuses on responsible, learning-first AI for programming courses.
-              </p>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <PersonCard
-                  name="Drake Bartolai"
-                  role="Technical lead"
-                  background="Computer Engineering, UIUC"
-                />
-                <PersonCard
-                  name="Charles Economou"
-                  role="Business lead"
-                  background="Accountancy, Illinois State University"
-                />
-              </div>
-            </div>
-
-            <div className="md:col-span-5 rounded-3xl border border-black/10 bg-white/40 shadow-sm p-6 md:p-8">
-              <h3 className="text-sm font-medium mb-4">Links</h3>
-              <div className="space-y-2 text-sm">
-                <a className="block rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white/80 transition-colors" href="https://www.linkedin.com/in/drake-bartolai/">
-                  Drake Bartolai
-                  <span className="block text-xs text-muted-foreground mt-0.5">LinkedIn</span>
-                </a>
-                <a className="block rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white/80 transition-colors" href="https://www.linkedin.com/in/charles-economou/">
-                  Charles Economou
-                  <span className="block text-xs text-muted-foreground mt-0.5">LinkedIn</span>
-                </a>
-                <a className="block rounded-2xl border border-black/10 bg-white/60 px-4 py-3 hover:bg-white/80 transition-colors" href="https://www.linkedin.com/company/ceria">
-                  ceria
-                  <span className="block text-xs text-muted-foreground mt-0.5">LinkedIn</span>
-                </a>
-              </div>
-
-              <div className="mt-6 text-xs text-muted-foreground">
-                © {new Date().getFullYear()} Ceria. Neuron is an early-stage product.
-              </div>
-            </div>
-          </div>
         </section>
       </main>
     </div>
