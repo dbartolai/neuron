@@ -1,6 +1,6 @@
 # Neuron
 
-*An instructor-controlled chatbot tool for academic integrity. Focusing on prompting AI to enforce specific pedagogy.
+*An instructor-controlled chatbot tool for academic integrity. Focusing on prompting AI to enforce specific pedagogy.*
 
 ### What is Neuron?
 
